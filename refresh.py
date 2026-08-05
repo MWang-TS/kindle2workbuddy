@@ -82,13 +82,13 @@ def ping_host(host):
 
 def push_and_refresh(ssh_bin, scp_bin, host):
     """SCP 推送 + SSH eips 刷新"""
-    # 1. 防睡眠 + 停止framework + 清屏 + 推送图片 + 刷新
+    # 1. 防睡眠 + 停止framework + 清屏 + 强制全屏刷新
     remote_cmd = (
         f"lipc-set-prop com.lab126.powerd preventScreenSaver 1; "
         f"/etc/init.d/framework stop 2>/dev/null; "
         f"sleep 1; "
         f"{EIPS_PATH} -c; "
-        f"{EIPS_PATH} -g {KINDLE_REMOTE}"
+        f"{EIPS_PATH} -f -g {KINDLE_REMOTE}"
     )
 
     # 2. SCP 传图
