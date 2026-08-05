@@ -141,30 +141,23 @@ def main():
     log("=" * 50)
     log("开始刷新 dashboard")
 
-    # 1. 生成 PNG + 计算页码
+    # 1. 生成 PNG + 计算页码（每30秒换页）
     png = render()
     page = get_page_for_time()
     log(f"已生成: {png} (第{page}/4页)")
 
-    # 2. 页码变化检测：同一页不重复推送（避免 e-ink 频繁闪烁）
-    last_page, last_ts = read_page_state()
-    force = time.time() - last_ts > FORCE_REFRESH_SECONDS
-    if last_page == page and not force:
-        log(f"第{page}页未变化，跳过刷新（上次 {dt.datetime.fromtimestamp(last_ts).strftime('%H:%M')}）")
-        return 0
-
-    # 3. 查找 ssh/scp
+    # 2. 查找 ssh/scp
     ssh_bin = find_bin("ssh")
     scp_bin = find_bin("scp")
     log(f"SSH: {ssh_bin}  SCP: {scp_bin}")
 
-    # 4. 检测 Kindle
+    # 3. 检测 Kindle
     if not ping_host(KINDLE_HOST):
         log(f"❌ Kindle 不在线 ({KINDLE_HOST})，请确认 Kindle 已唤醒且 WiFi 已连")
         return 1
     log(f"✅ Kindle 在线: {KINDLE_HOST}")
 
-    # 5. 推送 + 刷新
+    # 4. 推送 + 刷新
     if push_and_refresh(ssh_bin, scp_bin, KINDLE_HOST):
         write_page_state(page)
         log("✅ 全部完成")
