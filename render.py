@@ -3,6 +3,8 @@
 用 Pillow 生成 600x800 灰度 PNG，针对 Kindle 8代 e-ink 屏优化。
 布局：顶部状态栏 / 自动化任务 / 多项目进度 / 今日待办 / 底部刷新栏
 """
+__version__ = "0.1.0"
+
 import os
 import sys
 import json
@@ -1105,7 +1107,7 @@ def draw_footer(draw, now, sys_info):
     draw.line([(0, 720), (W, 720)], fill=FG, width=2)
     draw.text((16, 730), f"更新 {now['time']} | 下次 {next_refresh()}", font=f_tiny, fill=DARK_GRAY)
     draw.text((16, 752), f"{kindle_status} | {sys_info}", font=f_tiny, fill=DARK_GRAY)
-    draw.text((16, 775), "WorkBuddy Kindle Dashboard v1.2", font=f_tiny, fill=DARK_GRAY)
+    draw.text((16, 775), f"WorkBuddy Kindle Dashboard v{__version__}", font=f_tiny, fill=DARK_GRAY)
 
 
 def get_pc_detail():

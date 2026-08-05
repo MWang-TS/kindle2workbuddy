@@ -1,5 +1,7 @@
 # kindle2workbuddy
 
+**当前版本：v0.1.0**
+
 把吃灰的 Kindle 改造成 WorkBuddy 专属 dashboard 显示屏——通过 WiFi SSH + eips 刷新 e-ink 屏幕，省电、无闪烁、阳光下可读。
 
 ![Dashboard Preview](output/dashboard.png)
