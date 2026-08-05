@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 输出文件
+output/
+*.png
+*.log
+
+# 证书和敏感文件
+*.cer
+*.pem
+*.key
+
+# 系统文件
+.DS_Store
+Thumbs.db
