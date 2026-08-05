@@ -5,6 +5,8 @@ WiFi 模式：Kindle IP 192.168.8.24，SSH 免密（id_kindle 密钥）。
 """
 import os
 import sys
+import json
+import time
 import subprocess
 import platform
 import datetime as dt
@@ -12,7 +14,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
 sys.path.insert(0, str(BASE_DIR))
-from render import render
+from render import render, get_page_for_time
+
+PAGE_STATE_FILE = BASE_DIR / "output" / "page_state.json"
+FORCE_REFRESH_SECONDS = 600  # 页码长时间未变时强制刷新（10分钟）
 
 # ── Kindle SSH 配置（从 settings.py 读取）──────────────
 try:
@@ -111,27 +116,57 @@ def push_and_refresh(ssh_bin, scp_bin, host):
     return True
 
 
+def read_page_state():
+    """读取上次推送的页码状态"""
+    try:
+        if PAGE_STATE_FILE.exists():
+            data = json.loads(PAGE_STATE_FILE.read_text(encoding="utf-8"))
+            return data.get("page"), data.get("ts", 0)
+    except Exception:
+        pass
+    return None, 0
+
+
+def write_page_state(page):
+    """记录本次推送的页码"""
+    try:
+        PAGE_STATE_FILE.write_text(
+            json.dumps({"page": page, "ts": time.time()}), encoding="utf-8"
+        )
+    except Exception:
+        pass
+
+
 def main():
     log("=" * 50)
     log("开始刷新 dashboard")
 
-    # 1. 生成 PNG
+    # 1. 生成 PNG + 计算页码
     png = render()
-    log(f"已生成: {png}")
+    page = get_page_for_time()
+    log(f"已生成: {png} (第{page}/4页)")
 
-    # 2. 查找 ssh/scp
+    # 2. 页码变化检测：同一页不重复推送（避免 e-ink 频繁闪烁）
+    last_page, last_ts = read_page_state()
+    force = time.time() - last_ts > FORCE_REFRESH_SECONDS
+    if last_page == page and not force:
+        log(f"第{page}页未变化，跳过刷新（上次 {dt.datetime.fromtimestamp(last_ts).strftime('%H:%M')}）")
+        return 0
+
+    # 3. 查找 ssh/scp
     ssh_bin = find_bin("ssh")
     scp_bin = find_bin("scp")
     log(f"SSH: {ssh_bin}  SCP: {scp_bin}")
 
-    # 3. 检测 Kindle
+    # 4. 检测 Kindle
     if not ping_host(KINDLE_HOST):
         log(f"❌ Kindle 不在线 ({KINDLE_HOST})，请确认 Kindle 已唤醒且 WiFi 已连")
         return 1
     log(f"✅ Kindle 在线: {KINDLE_HOST}")
 
-    # 4. 推送 + 刷新
+    # 5. 推送 + 刷新
     if push_and_refresh(ssh_bin, scp_bin, KINDLE_HOST):
+        write_page_state(page)
         log("✅ 全部完成")
         return 0
     else:
