@@ -21,16 +21,16 @@ Turn a jailbroken Kindle into a dedicated WorkBuddy dashboard display via WiFi S
 
 ## 它能做什么
 
-在电脑端用 Pillow 渲染 600×800 灰度 dashboard 图片，通过 SCP 推送到 Kindle，再用 `eips` 命令刷新 e-ink 屏幕显示。Kindle 变成一个常亮、省电的状态显示屏，展示你的 WorkBuddy 自动化任务、项目进度、待办、日历和系统指标。
+在电脑端用 Pillow 渲染 600×800 灰度 dashboard 图片，通过 SCP 推送到 Kindle，再用 `eips` 命令刷新 e-ink 屏幕显示。Kindle 变成一个常亮、省电的状态显示屏，展示你的 WorkBuddy 自动化任务、会话状态、系统指标和日历。
 
-**4 页轮播**（每 3 分钟换一页，12 分钟一轮）：
+**4 页轮播**（每 30 秒换一页，2 分钟一轮）：
 
 | 页码 | 内容 |
 |------|------|
-| 1 | 主 dashboard：时钟 + 天气 + 自动化任务 + 项目进度 + 待办 |
-| 2 | 系统详情：电脑磁盘/进程 + Kindle 电量/运行时间 + 下次任务倒计时 |
-| 3 | 日历视图：本月日历，今天反白高亮 |
-| 4 | 飞书日程（占位，连接器接入后自动填充） |
+| 1 | 主 dashboard：时间天气 + 自动化任务 + 会话总览 + 系统占用 |
+| 2 | 系统详情：电脑磁盘环形图 + Kindle 状态 + 下次运行倒计时 |
+| 3 | 日历视图：超大时钟+天气+农历 + 本月日历（今天高亮，周末浅底区分） |
+| 4 | 当前会话信息：正在执行的对话会话详情 + 最近结束的会话列表 |
 
 ---
 
@@ -142,15 +142,16 @@ schtasks /create /tn "KindleDashboard" /tr "E:\path\to\kindle-dashboard\run_refr
 
 ```
 kindle2workbuddy/
-├── settings.py          # 配置文件（Kindle IP、SSH key 等）
-├── config.py            # 项目数据（项目列表、待办、简称映射）
+├── settings.py          # 配置文件（Kindle IP、SSH key、数据源等）
+├── config.py            # 自动化任务简称映射
 ├── render.py            # 渲染引擎（4 页轮播）
 ├── refresh.py           # 推送脚本（SCP + SSH eips 刷新）
-├── run_refresh.bat      # Windows Task Scheduler 调用入口
+├── daemon.py            # 后台守护进程（30秒循环调用refresh.py）
+├── run_refresh.bat      # Windows 任务计划程序调用入口
 ├── manual_refresh.bat   # 手动刷新快捷方式
 ├── setup_cron.ps1       # Windows 定时任务创建脚本
-├── kindle_rndis.inf     # RNDIS 驱动（USB 模式备用）
 ├── INSTALL.md           # USBNetwork 安装指引
+├── SKILL.md             # WorkBuddy Skill 文档
 └── output/              # 生成的 dashboard.png 和日志（已 gitignore）
 ```
 
@@ -158,14 +159,26 @@ kindle2workbuddy/
 
 ## 自定义
 
-### 添加你的项目
+### 修改配置
+
+编辑 `settings.py`：
+```python
+KINDLE_HOST = "192.168.8.24"       # Kindle WiFi IP
+WEATHER_CITY = "Shanghai"          # 天气城市
+WEATHER_CITY_CN = "上海"            # 中文显示名
+REFRESH_SECONDS = 30               # 推送间隔
+PAGE_DURATION = 30                 # 每页停留时间
+```
+
+### 自动化任务简称
 
 编辑 `config.py`：
 ```python
-PROJECTS = [
-    {"name": "我的项目", "detail": "描述", "status": "active", "progress": 50},
-    # ...
-]
+SHORT_NAME = {
+    "World Cup 2026 Daily Brief": "WC简报",
+    "AI HOT 晨报": "AI HOT晨报",
+    # 添加你的自动化任务简称映射
+}
 ```
 
 ### 修改天气城市
