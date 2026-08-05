@@ -599,17 +599,18 @@ def render_page2():
     draw_section_title(draw, "电脑状态", y_sec1, f_section)
     pc_info = get_pc_detail()
     card_top = y_sec1 + TITLE_TO_CONTENT  # 原36，改用间距常量
-    card_h1 = 138
+    card_h1 = 151  # 原138，放大字号后label+text溢出卡片，紧凑padding方案修正
     draw_card(draw, MARGIN, card_top, W - 2 * MARGIN, card_h1)
-    donut_positions = [(150, card_top + 66), (300, card_top + 66), (450, card_top + 66)]
+    # 三环形图中心位置，cy_offset=57.5确保顶部padding=12px，底部文字不溢出
+    donut_positions = [(150, card_top + 58), (300, card_top + 58), (450, card_top + 58)]
     for i, (label, pct, text) in enumerate(pc_info[:3]):
         cx, cy = donut_positions[i]
         if pct > 0:
             draw_donut(draw, cx, cy, 40, pct, width=11)
         else:
             draw.text((cx - 20, cy - 10), text, font=f_body, fill=FG)
-        draw.text((cx - 14, cy + 48), label, font=font(17, bold=True), fill=FG)  # 15→17
-        draw.text((cx - 28, cy + 68), text, font=f_tiny, fill=DARK_GRAY)
+        draw.text((cx - 14, cy + 50), label, font=font(17, bold=True), fill=FG)  # 原cy+48，调整cy+50
+        draw.text((cx - 28, cy + 68), text, font=f_tiny, fill=DARK_GRAY)  # 保持cy+68
 
     # ═══ Kindle 状态 ═══
     sec_y = card_top + card_h1 + SECTION_TO_SECTION  # 原+20，改用间距常量
@@ -686,9 +687,11 @@ def render_page3():
     now = get_now_str()
     sys_info = get_system_info()
     today = dt.datetime.now()
+    weather = get_weather()  # 页3也需要天气信息，在函数开头获取
 
     f_small = font(17)                # 15→17
     f_tiny = font(15)                 # 13→15
+    f_body = font(20)                 # 页3新增f_body用于天气显示
     f_xxl = font(80, bold=True)       # 超大时钟 72→80
     f_day = font(21, bold=True)       # 日历日期 19→21
     f_lunar_day = font(21, bold=True)
@@ -708,6 +711,12 @@ def render_page3():
     time_bbox = draw.textbbox((0, 0), time_str, font=f_xxl)
     time_w = time_bbox[2] - time_bbox[0]
     draw.text(((W - time_w) / 2, 26), time_str, font=f_xxl, fill=FG)
+
+    # 天气信息（时钟下方居中显示）
+    weather_text = f"{WEATHER_CITY_CN} · {weather}"
+    tb_weather = draw.textbbox((0, 0), weather_text, font=f_body)
+    weather_w = tb_weather[2] - tb_weather[0]
+    draw.text(((W - weather_w) / 2, 112), weather_text, font=f_body, fill=DARK_GRAY)
 
     # 日期（左）+ 农历徽章（右），同一行，视觉更紧凑统一
     draw.text((MARGIN, 168), now["date"], font=font(21, bold=True), fill=FG)
