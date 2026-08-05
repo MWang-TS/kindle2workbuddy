@@ -22,9 +22,18 @@ NO_WINDOW = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
 W, H = 600, 800          # Kindle 8代分辨率
 BG = 255                 # 白底
 FG = 0                   # 黑字
-GRAY = 170               # 灰色（进度条/次要）
-LIGHT_GRAY = 210         # 浅灰（分割线）
+GRAY = 170               # 灰色（进度条/次要，兼容旧调用）
+LIGHT_GRAY = 210         # 浅灰（分割线，兼容旧调用）
 DARK_GRAY = 80           # 深灰（强调）
+
+# 视觉系统 v1.3：统一卡片 / 圆角 / 网格
+RADIUS = 12              # 卡片圆角
+RADIUS_SM = 8            # 小圆角（chip/pill）
+CARD_BG = 248            # 卡片浅底（几乎白，增加层次不糊字）
+CARD_BORDER = 195        # 卡片描边
+TRACK_GRAY = 224         # 进度条/环形图背景轨道
+MARGIN = 20              # 页面左右边距
+GRID = 8                 # 基础网格单位
 
 FONT_DIR = "C:/Windows/Fonts"
 FONT_REGULAR = os.path.join(FONT_DIR, "msyh.ttc")    # 微软雅黑
@@ -272,12 +281,62 @@ def get_now_str():
 
 
 # ── 绘制工具 ───────────────────────────────────────────
+def draw_card(draw, x, y, w, h, fill=CARD_BG, outline=CARD_BORDER, radius=RADIUS):
+    """绘制圆角卡片（浅底+描边）"""
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=fill, outline=outline, width=1)
+
+
 def draw_progress_bar(draw, x, y, w, h, pct, fill_gray=GRAY):
-    """绘制进度条"""
+    """绘制进度条（兼容旧版，新版用draw_progress_bar_v2）"""
     draw.rectangle([x, y, x + w, y + h], outline=FG, width=1)
     fill_w = int(w * pct / 100)
     if fill_w > 1:
         draw.rectangle([x + 1, y + 1, x + fill_w, y + h - 1], fill=fill_gray)
+
+
+def draw_progress_bar_v2(draw, x, y, w, h, pct, radius=RADIUS_SM):
+    """绘制圆角进度条（新版，轨道灰+黑填充）"""
+    # 背景轨道
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=TRACK_GRAY)
+    # 前景填充
+    fill_w = int(w * pct / 100)
+    if fill_w > radius * 2:  # 至少要能画出圆角
+        draw.rounded_rectangle([x, y, x + fill_w, y + h], radius=radius, fill=FG)
+
+
+def draw_status_icon(draw, x, y, state, size=16):
+    """绘制状态图标（用几何形状代替emoji）
+    state: 'done'完成 / 'pending'待处理 / 'running'进行中 / 'error'错误
+    """
+    cx, cy = x + size // 2, y + size // 2
+    r = size // 2 - 2
+    if state == 'done':
+        # 实心圆●
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=FG)
+    elif state == 'pending':
+        # 空心圆○
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=FG, width=2)
+    elif state == 'running':
+        # 实心菱形◆
+        pts = [(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)]
+        draw.polygon(pts, fill=FG)
+    elif state == 'error':
+        # 叉号×
+        draw.line([(cx - r, cy - r), (cx + r, cy + r)], fill=FG, width=3)
+        draw.line([(cx - r, cy + r), (cx + r, cy - r)], fill=FG, width=3)
+
+
+def draw_badge(draw, x, y, text, fnt, bg=DARK_GRAY, fg=BG):
+    """绘制小徽章/pill（深底白字，圆角）"""
+    tb = draw.textbbox((0, 0), text, font=fnt)
+    tw, th = tb[2] - tb[0], tb[3] - tb[1]
+    pad = 6
+    draw.rounded_rectangle(
+        [x, y, x + tw + pad * 2, y + th + pad * 2],
+        radius=RADIUS_SM,
+        fill=bg
+    )
+    draw.text((x + pad, y + pad), text, font=fnt, fill=fg)
 
 
 def get_session_summary():
@@ -320,25 +379,35 @@ def draw_donut(draw, cx, cy, r, pct, width=13, show_pct=True):
     pct: 0-100；中心显示百分比数字
     """
     bbox = [cx - r, cy - r, cx + r, cy + r]
-    # 背景环（浅灰）
-    draw.arc(bbox, start=0, end=360, fill=LIGHT_GRAY, width=width)
+    # 背景环（浅灰轨道，与卡片/进度条统一视觉语言）
+    draw.arc(bbox, start=0, end=360, fill=TRACK_GRAY, width=width)
     # 前景弧（黑，从12点270°顺时针）
     if pct > 1:
         end_angle = (270 + 360 * pct / 100) % 360
         draw.arc(bbox, start=270, end=end_angle, fill=FG, width=width)
     # 中心百分比
     if show_pct:
-        f_num = font(18, bold=True)
+        f_num = font(19, bold=True)
         text = f"{pct:.0f}%"
         tb = draw.textbbox((0, 0), text, font=f_num)
         tw, th = tb[2] - tb[0], tb[3] - tb[1]
-        draw.text((cx - tw / 2, cy - th / 2), text, font=f_num, fill=FG)
+        draw.text((cx - tw / 2, cy - th / 2 - tb[1]), text, font=f_num, fill=FG)
 
 
-def draw_section_title(draw, text, y, fnt):
-    """区块标题"""
-    draw.text((20, y), text, font=fnt, fill=FG)
-    draw.line([(20, y + 24), (W - 20, y + 24)], fill=LIGHT_GRAY, width=1)
+def draw_section_title(draw, text, y, fnt, x=MARGIN, subtitle=None, f_sub=None):
+    """区块标题：左侧竖线强调条 + 标题 + 细分割线（统一四页视觉语言）
+    subtitle: 右对齐的补充说明文字（如"共4项"），可选
+    保持与旧版一致的垂直节奏：分割线固定在 y+26（旧版为 y+24），
+    不依赖字体实际高度，避免影响下游内容的固定偏移量。
+    """
+    # 左侧强调竖线（4px宽，18px高，视觉上贴合22px粗体标题）
+    draw.rounded_rectangle([x, y + 3, x + 4, y + 21], radius=2, fill=FG)
+    draw.text((x + 12, y), text, font=fnt, fill=FG)
+    if subtitle and f_sub:
+        stb = draw.textbbox((0, 0), subtitle, font=f_sub)
+        sw = stb[2] - stb[0]
+        draw.text((W - MARGIN - sw, y + 4), subtitle, font=f_sub, fill=DARK_GRAY)
+    draw.line([(x, y + 26), (W - MARGIN, y + 26)], fill=LIGHT_GRAY, width=1)
 
 
 # ── 主渲染入口（路由）──────────────────────────────────
@@ -380,7 +449,7 @@ def render_page(page_num):
 
 # ── 页1: 主 dashboard ──────────────────────────────────
 def render_page1():
-    """主 dashboard：时间天气/自动化任务/多项目进度/今日待办"""
+    """主 dashboard：时间天气/自动化任务/会话总览/系统占用"""
     img = Image.new("L", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
@@ -390,81 +459,102 @@ def render_page1():
     sys_info = get_system_info()
 
     sys.path.insert(0, str(BASE_DIR))
-    from config import PROJECTS, TODOS, STATUS_MARK, SHORT_NAME
+    from config import SHORT_NAME
 
     f_section = font(22, bold=True)
     f_body = font(17)
     f_small = font(15)
     f_tiny = font(13)
-    f_clock = font(34, bold=True)
+    f_clock = font(36, bold=True)
 
-    # 顶部
-    draw.text((16, 10), now["date"], font=f_section, fill=FG)
-    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
-    draw.text((W - 130, 14), weather, font=f_body, fill=DARK_GRAY)
-    draw.text((W - 130, 42), WEATHER_CITY_CN, font=f_small, fill=DARK_GRAY)
-    draw.text((W - 16, 10), "1/4", font=f_tiny, fill=DARK_GRAY)
-    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
+    # ═══ 顶部：时间 + 天气 ═══
+    draw.text((MARGIN, 12), now["date"], font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
+    # 右侧天气卡片（圆角浅底）
+    wx, wy = W - 136, 12
+    draw_card(draw, wx, wy, 116, 56, radius=RADIUS_SM)
+    draw.text((wx + 12, wy + 8), weather, font=f_body, fill=FG)
+    draw.text((wx + 12, wy + 32), WEATHER_CITY_CN, font=f_small, fill=DARK_GRAY)
+    # 页码标记
+    draw.text((W - MARGIN - 24, 12), "1/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
-    # 自动化任务 4 卡片
-    draw_section_title(draw, "自动化任务", 88, f_section)
+    # ═══ 自动化任务 4 卡片（圆角卡片 + 状态图标）═══
+    y_sec1 = 92
+    draw_section_title(draw, "自动化任务", y_sec1, f_section, subtitle=f"共{len(automations[:4])}项", f_sub=f_tiny)
     if not automations:
         automations = [{"name": "无活跃任务", "time": "--:--", "state": "idle"}]
-    card_x = 16
-    card_w = 138
-    card_h = 72
-    card_y = 120
+    
+    card_x = MARGIN
+    card_w = 134
+    card_h = 76
+    card_y = y_sec1 + 36
+    gap = 8
+    
     for i, task in enumerate(automations[:4]):
-        cx = card_x + i * (card_w + 8)
+        cx = card_x + i * (card_w + gap)
         cy = card_y
-        draw.rectangle([cx, cy, cx + card_w, cy + card_h], outline=GRAY, width=1)
+        # 圆角卡片
+        draw_card(draw, cx, cy, card_w, card_h)
+        
+        # 任务名称
         name = SHORT_NAME.get(task["name"], task["name"])
         if len(name) > 8:
             name = name[:7] + "…"
-        draw.text((cx + 8, cy + 8), name, font=f_body, fill=FG)
-        draw.text((cx + 8, cy + 32), "计划 " + task["time"], font=f_small, fill=DARK_GRAY)
-        if task["state"] == "done":
-            mark, color = "已执行", FG
-        elif task["state"] == "pending":
-            mark, color = "待执行", DARK_GRAY
+        draw.text((cx + 10, cy + 10), name, font=font(16, bold=True), fill=FG)
+        
+        # 计划时间
+        draw.text((cx + 10, cy + 34), task["time"], font=f_small, fill=DARK_GRAY)
+        
+        # 状态图标 + 文字
+        state_map = {"done": "done", "pending": "pending", "error": "error"}
+        state = state_map.get(task["state"], "pending")
+        draw_status_icon(draw, cx + 10, cy + 54, state, size=14)
+        if state == "done":
+            mark = "已执行"
+        elif state == "pending":
+            mark = "待执行"
         else:
-            mark, color = "异常", FG
-        draw.text((cx + 8, cy + 52), mark, font=f_small, fill=color)
+            mark = "异常"
+        draw.text((cx + 30, cy + 52), mark, font=f_small, fill=FG if state != "pending" else DARK_GRAY)
 
-    # 会话总览
+    # ═══ 会话总览（数字卡片）═══
     today_count, running_count, total_credit = get_session_summary()
-    sec_s = 210
-    draw_section_title(draw, "会话总览", sec_s + 5, f_section)
-    y = sec_s + 40
+    y_sec2 = 220
+    draw_section_title(draw, "会话总览", y_sec2, f_section)
+    y = y_sec2 + 36
+    
     items = [
         ("今日会话", f"{today_count}"),
         ("正在执行", f"{running_count}"),
         ("今日消耗", fmt_credit(total_credit)),
     ]
     for label, val in items:
-        draw.text((20, y), label, font=f_body, fill=FG)
-        draw.text((140, y), val, font=f_body, fill=FG)
-        y += 34
+        draw.text((MARGIN + 4, y), label, font=f_body, fill=DARK_GRAY)
+        draw.text((160, y), val, font=font(20, bold=True), fill=FG)
+        y += 32
 
-    # WorkBuddy 系统占用
-    sec2_y = 335
-    draw_section_title(draw, "WorkBuddy 系统占用", sec2_y + 5, f_section)
+    # ═══ WorkBuddy 系统占用 ═══
+    y_sec3 = 350
+    draw_section_title(draw, "系统占用", y_sec3, f_section)
     wb = get_workbuddy_usage()
-    y = sec2_y + 40
+    y = y_sec3 + 36
+    
     items = [
-        ("/.workbuddy 存储", f"{wb['size_gb']:.2f} GB"),
-        ("存储占磁盘总空间", f"{wb['pct']:.2f}%"),
+        (".workbuddy", f"{wb['size_gb']:.2f} GB"),
+        ("占磁盘总空间", f"{wb['pct']:.2f}%"),
         ("磁盘已用", f"{wb['disk_used']/1024**3:.1f} GB"),
         ("磁盘可用", f"{wb['disk_free']/1024**3:.1f} GB"),
     ]
     for label, val in items:
-        draw.text((20, y), label, font=f_body, fill=FG)
-        draw.text((280, y), val, font=f_body, fill=FG)
-        y += 38
-    # 磁盘使用率进度条
+        draw.text((MARGIN + 4, y), label, font=f_body, fill=DARK_GRAY)
+        draw.text((240, y), val, font=f_body, fill=FG)
+        y += 32
+    
+    # 磁盘使用率进度条（新版圆角）
     disk_pct = wb["disk_used"] / wb["disk_total"] * 100 if wb["disk_total"] else 0
-    draw_progress_bar(draw, 20, y + 4, 420, 16, disk_pct)
-    draw.text((460, y), f"磁盘 {disk_pct:.0f}%", font=f_small, fill=FG)
+    draw_progress_bar_v2(draw, MARGIN, y + 8, 400, 20, disk_pct)
+    draw.text((440, y + 10), f"{disk_pct:.0f}%", font=f_small, fill=FG)
 
     # 底部
     draw_footer(draw, now, sys_info)
@@ -475,67 +565,77 @@ def render_page1():
 
 # ── 页2: 系统详情 ──────────────────────────────────────
 def render_page2():
-    """系统详情：电脑/Kindle/下次任务"""
+    """系统详情：电脑磁盘环形图 / Kindle状态 / 下次运行倒计时"""
     img = Image.new("L", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
     now = get_now_str()
     sys_info = get_system_info()
-    kindle_status = get_kindle_status()
 
     f_section = font(22, bold=True)
     f_body = font(17)
     f_small = font(15)
     f_tiny = font(13)
-    f_clock = font(34, bold=True)
+    f_clock = font(36, bold=True)
 
-    # 顶部
-    draw.text((16, 10), "系统状态", font=f_section, fill=FG)
-    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
-    draw.text((W - 130, 14), sys_info, font=f_body, fill=DARK_GRAY)
-    draw.text((W - 130, 42), "电脑", font=f_small, fill=DARK_GRAY)
-    draw.text((W - 16, 10), "2/4", font=f_tiny, fill=DARK_GRAY)
-    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
+    # ═══ 顶部 ═══
+    draw.text((MARGIN, 12), "系统状态", font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
+    wx, wy = W - 136, 12
+    draw_card(draw, wx, wy, 116, 56, radius=RADIUS_SM)
+    draw.text((wx + 12, wy + 8), sys_info, font=f_body, fill=FG)
+    draw.text((wx + 12, wy + 32), "电脑磁盘", font=f_small, fill=DARK_GRAY)
+    draw.text((W - MARGIN - 24, 12), "2/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
-    # 电脑状态（环形图）
-    draw_section_title(draw, "电脑状态", 88, f_section)
+    # ═══ 电脑状态（三环形图，卡片承载）═══
+    y_sec1 = 92
+    draw_section_title(draw, "电脑状态", y_sec1, f_section)
     pc_info = get_pc_detail()
-    donut_positions = [(110, 170), (290, 170), (470, 170)]  # 3个环形图中心
+    card_top = y_sec1 + 36
+    card_h1 = 138
+    draw_card(draw, MARGIN, card_top, W - 2 * MARGIN, card_h1)
+    donut_positions = [(150, card_top + 66), (300, card_top + 66), (450, card_top + 66)]
     for i, (label, pct, text) in enumerate(pc_info[:3]):
         cx, cy = donut_positions[i]
         if pct > 0:
-            draw_donut(draw, cx, cy, 42, pct)
+            draw_donut(draw, cx, cy, 40, pct, width=11)
         else:
             draw.text((cx - 20, cy - 10), text, font=f_body, fill=FG)
-        # 标签 + 说明
-        draw.text((cx - 15, cy + 55), label, font=f_body, fill=FG)
-        draw.text((cx - 25, cy + 80), text, font=f_tiny, fill=DARK_GRAY)
+        draw.text((cx - 14, cy + 48), label, font=font(15, bold=True), fill=FG)
+        draw.text((cx - 28, cy + 68), text, font=f_tiny, fill=DARK_GRAY)
 
-    # Kindle 状态（电量环形图 + 文字）
-    sec_y = 300
+    # ═══ Kindle 状态 ═══
+    sec_y = card_top + card_h1 + 20
     draw_section_title(draw, "Kindle 状态", sec_y, f_section)
     kindle_info = get_kindle_detail()
-    y = sec_y + 36
-    first = True
+    card_top2 = sec_y + 36
+    # 动态计算卡片高度：电量行56px，其余每行30px，上下各留14px padding
+    row_heights = [56 if (pct is not None and pct > 0) else 30 for _, pct, _ in kindle_info]
+    card_h2 = sum(row_heights) + 28
+    draw_card(draw, MARGIN, card_top2, W - 2 * MARGIN, card_h2)
+    y = card_top2 + 14
     for label, pct, text in kindle_info:
         if pct is not None and pct > 0:
-            # 电量：环形图（行距大）
-            draw_donut(draw, 110, y + 25, 28, pct)
-            draw.text((160, y + 15), label, font=f_body, fill=FG)
-            draw.text((160, y + 40), text, font=f_tiny, fill=DARK_GRAY)
-            y += 58
+            draw_donut(draw, MARGIN + 44, y + 24, 30, pct, width=9)
+            draw.text((MARGIN + 96, y + 12), label, font=font(16, bold=True), fill=FG)
+            draw.text((MARGIN + 96, y + 36), text, font=f_tiny, fill=DARK_GRAY)
+            y += 56
         else:
-            # 其余：纯文字（行距小）
-            draw.text((20, y), label, font=f_body, fill=FG)
-            draw.text((170, y), text, font=f_body, fill=DARK_GRAY)
-            y += 34
+            draw.text((MARGIN + 12, y), label, font=f_body, fill=DARK_GRAY)
+            draw.text((MARGIN + 150, y), text, font=f_body, fill=FG)
+            y += 30
 
-    # 自动化任务下次运行
-    sec_y = y + 15
-    draw_section_title(draw, "下次运行倒计时", sec_y, f_section)
+    # ═══ 自动化任务下次运行倒计时 ═══
+    sec_y3 = card_top2 + card_h2 + 20
+    draw_section_title(draw, "下次运行倒计时", sec_y3, f_section)
     automations = get_automations()
-    y = sec_y + 36
+    y = sec_y3 + 36
     now_dt = dt.datetime.now()
+    n_tasks = min(len(automations), 4) or 1
+    # 动态压缩行高：footer分割线在y=720，预留10px安全边距，避免任务数增多时溢出
+    available = 710 - y
+    row_h = max(32, min(46, int(available / n_tasks))) if available > 0 else 32
     for task in automations[:4]:
         rrule_str = task.get("time", "--:--")
         try:
@@ -543,20 +643,26 @@ def render_page2():
             task_time = now_dt.replace(hour=int(h), minute=int(m), second=0)
             if task_time <= now_dt:
                 task_time += dt.timedelta(days=1)
-                label = "明天"
+                day_label = "明天"
             else:
-                label = "今天"
+                day_label = "今天"
             delta = task_time - now_dt
             hours = delta.seconds // 3600
             mins = (delta.seconds % 3600) // 60
             count = f"{hours}h{mins}m"
         except Exception:
             count = "--"
-            label = "?"
-        draw.text((20, y), task["name"][:10], font=f_body, fill=FG)
-        draw.text((300, y), f"{label} {rrule_str}", font=f_body, fill=DARK_GRAY)
-        draw.text((W - 80, y), count, font=f_body, fill=FG)
-        y += 36
+            day_label = "?"
+        # 行卡片
+        draw_card(draw, MARGIN, y, W - 2 * MARGIN, row_h - 8, radius=RADIUS_SM)
+        name = task["name"]
+        if len(name) > 12:
+            name = name[:11] + "…"
+        draw.text((MARGIN + 12, y + 12), name, font=f_body, fill=FG)
+        draw.text((260, y + 13), f"{day_label} {rrule_str}", font=f_small, fill=DARK_GRAY)
+        # 倒计时用徽章突出
+        draw_badge(draw, W - MARGIN - 78, y + 6, count, f_small)
+        y += row_h
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -565,7 +671,7 @@ def render_page2():
 
 # ── 页3: 日历视图 ──────────────────────────────────────
 def render_page3():
-    """日历视图：本月日历，今天高亮"""
+    """日历视图：超大时钟+农历 / 本月日历（今天高亮，周末浅底区分）"""
     import calendar
 
     img = Image.new("L", (W, H), BG)
@@ -575,64 +681,74 @@ def render_page3():
     sys_info = get_system_info()
     today = dt.datetime.now()
 
-    f_section = font(22, bold=True)
-    f_body = font(17)
     f_small = font(15)
     f_tiny = font(13)
-    f_clock = font(34, bold=True)
     f_xxl = font(72, bold=True)   # 超大时钟
-    f_day = font(20, bold=True)
+    f_day = font(19, bold=True)
+    f_lunar_day = font(19, bold=True)
 
     # ═══ 上 1/3：大数字时钟 + 日期 + 农历 ═══
     now_dt = dt.datetime.now()
     lunar_info = get_lunar(now_dt.year, now_dt.month, now_dt.day)
     gan = "甲乙丙丁戊己庚辛壬癸"[(lunar_info[0] - 4) % 10]
     zhi = "子丑寅卯辰巳午未申酉戌亥"[(lunar_info[0] - 4) % 12]
-    lunar_str = f"农历{gan}{zhi}年 {('闰' if lunar_info[2] else '')}{LUNAR_MON_CN[lunar_info[1]]}月{LUNAR_DAY_CN[lunar_info[3]]}"
+    lunar_str = f"{gan}{zhi}年 {('闰' if lunar_info[2] else '')}{LUNAR_MON_CN[lunar_info[1]]}月{LUNAR_DAY_CN[lunar_info[3]]}"
+
+    # 页码
+    draw.text((W - MARGIN - 24, 14), "3/4", font=f_tiny, fill=DARK_GRAY)
 
     # 超大时间居中
     time_str = now["time"]
     time_bbox = draw.textbbox((0, 0), time_str, font=f_xxl)
     time_w = time_bbox[2] - time_bbox[0]
-    draw.text(((W - time_w) / 2, 30), time_str, font=f_xxl, fill=FG)
-    # 日期 + 农历
-    draw.text((16, 165), now["date"], font=f_section, fill=FG)
-    draw.text((W - 130, 170), "3/4", font=f_tiny, fill=DARK_GRAY)
-    draw.text((16, 205), lunar_str, font=f_section, fill=FG)
-    draw.line([(0, 260), (W, 260)], fill=FG, width=2)
+    draw.text(((W - time_w) / 2, 26), time_str, font=f_xxl, fill=FG)
 
-    # ═══ 下 2/3：紧凑日历（含农历）═══
+    # 日期（左）+ 农历徽章（右），同一行，视觉更紧凑统一
+    draw.text((MARGIN, 168), now["date"], font=font(21, bold=True), fill=FG)
+    draw_badge(draw, W - MARGIN - 168, 166, "农历 " + lunar_str, f_small, bg=FG, fg=BG)
+    draw.line([(0, 214), (W, 214)], fill=FG, width=2)
+
+    # ═══ 下 2/3：紧凑日历（含农历，卡片承载）═══
+    grid_x = MARGIN
+    grid_y = 230
+    cell_w = (W - 2 * MARGIN) // 7   # 80
+    cell_h = 68
     days_cn = ["一", "二", "三", "四", "五", "六", "日"]
-    grid_x = 20
-    grid_y = 278
-    cell_w = (W - 40) // 7   # 80
-    cell_h = 62
+
+    # 星期头（周末用深灰突出区分）
     for i, d in enumerate(days_cn):
-        x = grid_x + i * cell_w
-        draw.text((x + 30, grid_y), d, font=f_small, fill=DARK_GRAY)
+        col = DARK_GRAY if i >= 5 else FG
+        tb = draw.textbbox((0, 0), d, font=f_small)
+        tw = tb[2] - tb[0]
+        draw.text((grid_x + i * cell_w + (cell_w - tw) / 2, grid_y), d, font=f_small, fill=col)
 
     cal = calendar.Calendar(firstweekday=0)  # 周一开头
     month_days = cal.monthdayscalendar(today.year, today.month)
-    cal_y = grid_y + 28
+    cal_y = grid_y + 30
+    cell_gap = 4
     for week_idx, week in enumerate(month_days):
         for day_idx, day in enumerate(week):
             if day == 0:
                 continue
             x = grid_x + day_idx * cell_w
             y = cal_y + week_idx * cell_h
+            cw, ch = cell_w - cell_gap, cell_h - cell_gap
             lunar_txt = lunar_day_short(today.year, today.month, day)
+            is_weekend = day_idx >= 5
+
             if day == today.day:
-                # 今天反白
-                draw.rectangle([x, y, x + cell_w - 3, y + cell_h - 6], fill=FG)
-                draw.text((x + 24, y + 4), str(day), font=f_day, fill=BG)
-                draw.text((x + 16, y + 30), lunar_txt[:4], font=f_tiny, fill=BG)
+                # 今天：黑底圆角高亮
+                draw.rounded_rectangle([x, y, x + cw, y + ch], radius=RADIUS_SM, fill=FG)
+                day_col, lunar_col = BG, BG
+            elif is_weekend:
+                # 周末：浅灰圆角底，区别于工作日
+                draw.rounded_rectangle([x, y, x + cw, y + ch], radius=RADIUS_SM, fill=CARD_BG, outline=CARD_BORDER, width=1)
+                day_col, lunar_col = DARK_GRAY, DARK_GRAY
             else:
-                if day_idx >= 5:  # 周末
-                    col = DARK_GRAY
-                else:
-                    col = FG
-                draw.text((x + 24, y + 4), str(day), font=f_day, fill=col)
-                draw.text((x + 16, y + 30), lunar_txt[:4], font=f_tiny, fill=DARK_GRAY)
+                day_col, lunar_col = FG, DARK_GRAY
+
+            draw.text((x + 12, y + 6), str(day), font=f_day, fill=day_col)
+            draw.text((x + 10, y + 32), lunar_txt[:4], font=f_tiny, fill=lunar_col)
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -641,7 +757,7 @@ def render_page3():
 
 # ── 页4: 任务执行状态 ────────────────────────────────
 def render_page4():
-    """任务执行状态：任务名称/模型/credit/结果"""
+    """当前会话信息：正在执行的对话会话详情 / 最近结束的会话列表"""
     img = Image.new("L", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
@@ -653,77 +769,98 @@ def render_page4():
     f_body = font(17)
     f_small = font(15)
     f_tiny = font(13)
-    f_clock = font(34, bold=True)
+    f_clock = font(36, bold=True)
 
-    # 顶部
-    draw.text((16, 10), "当前会话信息", font=f_section, fill=FG)
-    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
-    draw.text((W - 16, 10), "4/4", font=f_tiny, fill=DARK_GRAY)
-    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
+    # ═══ 顶部 ═══
+    draw.text((MARGIN, 12), "当前会话信息", font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
+    draw.text((W - MARGIN - 24, 12), "4/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
-    # 区块1: 正在执行（大字体，内容多）
-    draw_section_title(draw, "正在执行", 88, f_section)
+    # ═══ 区块1: 正在执行（卡片承载，几何图标代替emoji）═══
+    y_sec1 = 92
+    draw_section_title(draw, "正在执行", y_sec1, f_section)
+    card_top = y_sec1 + 36
     if running:
-        y = 132
         task = running[0]
+        card_h1 = 158
+        draw_card(draw, MARGIN, card_top, W - 2 * MARGIN, card_h1)
+
         name = task["name"]
-        if len(name) > 18:
-            name = name[:17] + "…"
-        draw.text((20, y), name, font=f_section, fill=FG)
-        draw.text((20, y + 32), "⏳ 执行中", font=f_body, fill=FG)
-        draw.text((150, y + 32), "模型 " + task["model"], font=f_body, fill=FG)
+        if len(name) > 17:
+            name = name[:16] + "…"
+        draw.text((MARGIN + 14, card_top + 14), name, font=font(20, bold=True), fill=FG)
+
+        # 状态图标（菱形=运行中）+ 文字 + 模型徽章
+        draw_status_icon(draw, MARGIN + 14, card_top + 48, "running", size=16)
+        draw.text((MARGIN + 36, card_top + 46), "执行中", font=f_body, fill=FG)
+        draw_badge(draw, MARGIN + 118, card_top + 42, task["model"], f_small)
+
         run_mins = int((dt.datetime.now() - task["start"]).total_seconds() / 60)
-        draw.text((20, y + 60), "开始 %s · 已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
-                  font=f_body, fill=FG)
+        draw.text((MARGIN + 14, card_top + 78),
+                  "开始 %s   已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
+                  font=f_body, fill=DARK_GRAY)
+
         # 消耗：自定义模型显示 Token（used），标准模型显示 Credit（credit_json 实际值）
         if task["is_custom"]:
             usage_text = "Token " + fmt_token(task["token"])
             if task["credit"] is not None:
-                usage_text += " | Credit " + fmt_credit(task["credit"])
+                usage_text += "  ·  Credit " + fmt_credit(task["credit"])
         else:
             usage_text = "Credit " + fmt_credit(task["credit"])
-        draw.text((20, y + 88), usage_text, font=f_body, fill=FG)
+        draw.text((MARGIN + 14, card_top + 106), usage_text, font=font(17, bold=True), fill=FG)
+
         cwd = task["cwd"]
         if cwd:
-            if len(cwd) > 32:
-                cwd = "…" + cwd[-30:]
-            draw.text((20, y + 116), cwd, font=f_small, fill=DARK_GRAY)
+            if len(cwd) > 34:
+                cwd = "…" + cwd[-32:]
+            draw.text((MARGIN + 14, card_top + 134), cwd, font=f_tiny, fill=DARK_GRAY)
     else:
-        draw.text((20, 140), "当前无执行中的会话", font=f_body, fill=FG)
+        card_h1 = 60
+        draw_card(draw, MARGIN, card_top, W - 2 * MARGIN, card_h1)
+        draw_status_icon(draw, MARGIN + 14, card_top + 20, "pending", size=16)
+        draw.text((MARGIN + 38, card_top + 18), "当前无执行中的会话", font=f_body, fill=DARK_GRAY)
 
-    # 区块2: 刚刚结束的会话
-    sec_r = 295 if running else 210
+    # ═══ 区块2: 最近会话（每条一张圆角卡片，状态图标代替emoji）═══
+    sec_r = card_top + card_h1 + 20
     draw_section_title(draw, "最近会话", sec_r, f_section)
+    y = sec_r + 36
     if recent:
-        y = sec_r + 40
-        for item in recent[:3]:
-            # 第一行：时间 + 完整名称（黑字）
-            draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
+        items = recent[:3]
+        # 动态压缩行高，避免超出footer(720)
+        available = 710 - y
+        row_h = max(64, min(84, int(available / len(items)))) if available > 0 else 64
+        for item in items:
+            draw_card(draw, MARGIN, y, W - 2 * MARGIN, row_h - 8, radius=RADIUS_SM)
+            inner_y = y + 10
+
+            # 状态图标（●完成 / ×失败）+ 时间
+            state = "done" if item["result"] == 1 else "error"
+            draw_status_icon(draw, MARGIN + 12, inner_y + 2, state, size=14)
+            draw.text((MARGIN + 34, inner_y), fmt_time(item["time"]), font=f_tiny, fill=DARK_GRAY)
+
+            # 会话名称（黑字，右对齐留出图标位）
             name = item["name"]
-            if len(name) > 24:
-                name = name[:23] + "…"
-            draw.text((90, y), name, font=f_body, fill=FG)
-            # 第二行：模型（黑字）+ 结果标记
-            model_text = "模型 " + item["model"]
-            if len(model_text) > 20:
-                model_text = model_text[:19] + "…"
-            draw.text((90, y + 28), model_text, font=f_body, fill=FG)
-            if item["result"] == 1:
-                mark = "✅"
-            else:
-                mark = "❌"
-            draw.text((W - 36, y + 28), mark, font=f_body, fill=FG)
-            # 第三行：用量（自定义模型显示 Token，标准模型显示 Credit）
+            if len(name) > 20:
+                name = name[:19] + "…"
+            draw.text((MARGIN + 100, inner_y), name, font=font(16, bold=True), fill=FG)
+
+            # 第二行：模型徽章（左） + 用量（右对齐，避免模型名过长时重叠）
+            draw_badge(draw, MARGIN + 12, inner_y + 24, item["model"], f_tiny, bg=CARD_BORDER, fg=FG)
             if item["is_custom"]:
                 usage_text = "Token " + fmt_token(item["token"])
                 if item["credit"] is not None:
-                    usage_text += " | Credit " + fmt_credit(item["credit"])
+                    usage_text += "  Credit " + fmt_credit(item["credit"])
             else:
                 usage_text = "Credit " + fmt_credit(item["credit"])
-            draw.text((90, y + 54), usage_text, font=f_small, fill=DARK_GRAY)
-            y += 78
+            utb = draw.textbbox((0, 0), usage_text, font=f_small)
+            uw = utb[2] - utb[0]
+            draw.text((W - MARGIN - 12 - uw, inner_y + 26), usage_text, font=f_small, fill=DARK_GRAY)
+
+            y += row_h
     else:
-        draw.text((20, sec_r + 40), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
+        draw_card(draw, MARGIN, y, W - 2 * MARGIN, 50, radius=RADIUS_SM)
+        draw.text((MARGIN + 14, y + 14), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
