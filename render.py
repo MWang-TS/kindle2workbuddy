@@ -607,19 +607,19 @@ def get_task_status():
         now_dt = dt.datetime.now()
         today_start_ms = int(dt.datetime(now_dt.year, now_dt.month, now_dt.day).timestamp() * 1000)
 
-        # 正在执行的任务（真正的进行中状态）
+        # 正在执行的任务（后台自动化 + 当前活动会话）
         running = []
         for s in conn.execute(
-            "SELECT s.custom_title, s.model, s.status, s.updated_at, s.created_at, su.credit_json, su.used "
+            "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, s.created_at, su.credit_json, su.used "
             "FROM sessions s "
             "LEFT JOIN session_usage su ON s.id = su.session_id "
-            "WHERE s.is_background_automation=1 AND s.custom_title IS NOT NULL "
-            "AND s.deleted_at IS NULL "
+            "WHERE s.deleted_at IS NULL "
             "AND s.status IN ('working','running','Pending','processing','queued') "
+            "AND (s.is_background_automation=1 OR s.is_playground=1) "
             "ORDER BY s.updated_at DESC LIMIT 4"
         ):
             running.append({
-                "name": s["custom_title"],
+                "name": s["custom_title"] or s["title"] or "未命名会话",
                 "model": simplify_model(s["model"]),
                 "credit": sum_credit(s["credit_json"]) or s["used"] or None,
                 "status": s["status"],
