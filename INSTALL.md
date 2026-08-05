@@ -102,9 +102,10 @@ README.md
    - 等 10 秒
    - 在 Git Bash / PowerShell / CMD 中执行：
      ```bash
-     ssh root@192.168.15.244
+     ssh root@<KINDLE_USB_IP>
      ```
    - 默认密码通常是 `mario`（USBNetwork 旧版默认密码）
+   - `<KINDLE_USB_IP>` 通常是 `192.168.15.244`（USBNetwork 默认 USB 模式 IP）
 
 > 如果连不上，确认 Windows 防火墙没拦截，或检查网络适配器是否有新 USB RNDIS 连接。
 
@@ -122,8 +123,8 @@ ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
 
 # 2. 推送公钥到 Kindle
 # 首次需要密码（默认 mario）
-ssh root@192.168.15.244 "mkdir -p /mnt/us/usbnet/etc"
-scp ~/.ssh/id_ed25519.pub root@192.168.15.244:/mnt/us/usbnet/etc/authorized_keys
+ssh root@<KINDLE_USB_IP> "mkdir -p /mnt/us/usbnet/etc"
+scp ~/.ssh/id_ed25519.pub root@<KINDLE_USB_IP>:/mnt/us/usbnet/etc/authorized_keys
 
 # 3. Kindle 端 sshd 重启使其生效（直接 Kindle 屏幕操作）
 # KUAL → USBNetwork → "Restart sshd"
@@ -132,7 +133,7 @@ scp ~/.ssh/id_ed25519.pub root@192.168.15.244:/mnt/us/usbnet/etc/authorized_keys
 之后就能免密登录：
 
 ```bash
-ssh root@192.168.15.244 "echo ok"
+ssh root@<KINDLE_USB_IP> "echo ok"
 ```
 
 ---
@@ -143,12 +144,12 @@ ssh root@192.168.15.244 "echo ok"
 
 1. Kindle 连上家里 WiFi（主页 → 顶部菜单 → WiFi 设置）
 2. KUAL → USBNetwork → **"Enable WiFi"**
-3. Kindle 屏幕上应显示获得的 IP（如 `192.168.1.20`）
+3. Kindle 屏幕上应显示获得的 IP（如 `192.168.1.x`）
 4. 电脑端测试：
    ```bash
-   ssh root@192.168.1.20
+   ssh root@<KINDLE_WIFI_IP>
    ```
-5. 把这个 IP 改到 `refresh.py` 里的 `KINDLE_HOST_WIFI` 变量
+5. 把这个 IP 改到 `settings.py` 里的 `KINDLE_HOST` 变量
 
 ---
 
@@ -157,8 +158,8 @@ ssh root@192.168.15.244 "echo ok"
 回到电脑，进入项目目录：
 
 ```bash
-cd E:/workbuddy/2026-08-05-10-54-06/kindle-dashboard
-/c/Users/wangm/.workbuddy/binaries/python/envs/default/Scripts/python.exe refresh.py
+cd /path/to/kindle-dashboard
+python refresh.py
 ```
 
 如果一切正常，Kindle 屏幕会立刻刷新显示 dashboard！
@@ -173,15 +174,15 @@ cd E:/workbuddy/2026-08-05-10-54-06/kindle-dashboard
 2. 创建任务 → 名称 "Kindle Dashboard Refresh"
 3. 触发器：每 3 分钟触发一次（用户登录时）
 4. 操作：启动程序
-   - 程序：`C:\Users\wangm\.workbuddy\binaries\python\envs\default\Scripts\python.exe`
-   - 参数：`E:\workbuddy\2026-08-05-10-54-06\kindle-dashboard\refresh.py`
+   - 程序：你的 Python 解释器路径（如 `C:\Python3x\python.exe`，或虚拟环境内的 `python.exe`）
+   - 参数：`/path/to/kindle-dashboard/refresh.py`
 5. 条件：取消"只在交流电时启动"
 6. 保存
 
 ### 方案 B：Kindle 端 cron（需 USB 模式下）
 
 ```bash
-ssh root@192.168.15.244
+ssh root@<KINDLE_USB_IP>
 echo "*/3 * * * * /mnt/us/refresh_screen.sh" >> /etc/crontab/root
 ```
 

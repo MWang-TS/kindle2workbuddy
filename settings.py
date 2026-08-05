@@ -2,7 +2,7 @@
 # 复用时修改这个文件即可，不需要改其他代码
 
 # ── Kindle SSH 连接 ──────────────────────────────────
-KINDLE_HOST    = "192.168.8.24"       # Kindle WiFi IP（在 Kindle 搜索框输入 ;711 查看）
+KINDLE_HOST    = "192.168.x.x"        # Kindle WiFi IP（在 Kindle 搜索框输入 ;711 查看）
 KINDLE_PORT    = 22
 KINDLE_USER    = "root"
 SSH_KEY        = "~/.ssh/id_kindle"   # SSH 密钥路径
@@ -14,8 +14,8 @@ DB_PATH        = "~/.workbuddy/workbuddy.db"  # WorkBuddy 数据库路径
 DISK_PATH      = "E:/"                      # 监控的磁盘
 
 # ── 天气 ────────────────────────────────────────────
-WEATHER_CITY   = "Shanghai"   # wttr.in 城市名
-WEATHER_CITY_CN = "上海"       # 显示用中文名
+WEATHER_CITY   = "Beijing"    # wttr.in 城市名（改成你所在城市的英文名）
+WEATHER_CITY_CN = "北京"       # 显示用中文名
 
 # ── 刷新间隔 ────────────────────────────────────────
 REFRESH_SECONDS = 30  # 推送间隔（秒）

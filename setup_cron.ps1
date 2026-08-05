@@ -5,14 +5,17 @@
 #   powershell -ExecutionPolicy Bypass -File setup_cron.ps1
 
 $TaskName = "WorkBuddy Kindle Dashboard Refresh"
-$PythonPath = "C:\Users\wangm\.workbuddy\binaries\python\envs\default\Scripts\python.exe"
-$ScriptPath = "E:\workbuddy\2026-08-05-10-54-06\kindle-dashboard\refresh.py"
+# Python 解释器路径：默认用 PATH 里的 python，也可改成绝对路径（如虚拟环境内的 python.exe）
+$PythonPath = "python.exe"
+$ScriptPath = Join-Path $PSScriptRoot "refresh.py"
 
 # 检查 python 是否存在
-if (-not (Test-Path $PythonPath)) {
-    Write-Error "Python 不存在: $PythonPath"
+$PythonCmd = Get-Command $PythonPath -ErrorAction SilentlyContinue
+if (-not $PythonCmd) {
+    Write-Error "找不到 Python，请将 `$PythonPath 改为你的 python.exe 绝对路径"
     exit 1
 }
+$PythonPath = $PythonCmd.Source
 
 # 删除旧任务（如果存在）
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue

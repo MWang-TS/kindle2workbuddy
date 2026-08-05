@@ -34,7 +34,7 @@ version: 0.1.0
 
 **settings.py** - 核心配置
 ```python
-KINDLE_HOST = "192.168.8.24"     # Kindle WiFi IP（Kindle搜索框输入 ;711 查看）
+KINDLE_HOST = "192.168.x.x"     # Kindle WiFi IP（Kindle搜索框输入 ;711 查看）
 KINDLE_PORT = 22
 KINDLE_USER = "root"
 SSH_KEY = "~/.ssh/id_kindle"     # SSH密钥路径
@@ -44,8 +44,8 @@ KINDLE_REMOTE = "/mnt/us/dashboard.png"
 DB_PATH = "~/.workbuddy/workbuddy.db"  # WorkBuddy数据库路径
 DISK_PATH = "E:/"                       # 监控的磁盘
 
-WEATHER_CITY = "Shanghai"               # wttr.in城市名
-WEATHER_CITY_CN = "上海"                 # 显示用中文名
+WEATHER_CITY = "Beijing"                # wttr.in城市名（改成你所在城市）
+WEATHER_CITY_CN = "北京"                 # 显示用中文名
 
 REFRESH_SECONDS = 30   # 推送间隔（秒）
 PAGE_DURATION = 30     # 每页停留时间（秒）

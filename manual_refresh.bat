@@ -5,8 +5,8 @@ echo ============================================
 echo   WorkBuddy Kindle Dashboard Refresh
 echo ============================================
 echo.
-cd /d "E:\workbuddy\2026-08-05-10-54-06\kindle-dashboard"
-"C:\Users\wangm\.workbuddy\binaries\python\envs\default\Scripts\python.exe" refresh.py
+cd /d "%~dp0"
+python refresh.py
 echo.
 echo ============================================
 echo   Done - Press any key to close

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """kindle-dashboard 推送脚本
 生成 dashboard.png 后，通过 SCP 推送到 Kindle，再用 SSH 执行 eips 刷新。
-WiFi 模式：Kindle IP 192.168.8.24，SSH 免密（id_kindle 密钥）。
+WiFi 模式：Kindle IP 见 settings.py 的 KINDLE_HOST，SSH 免密（id_kindle 密钥）。
 """
 import os
 import sys
@@ -25,7 +25,7 @@ try:
 except ImportError:
     pass
 
-KINDLE_HOST    = getattr(globals(), 'KINDLE_HOST', "192.168.8.24")
+KINDLE_HOST    = getattr(globals(), 'KINDLE_HOST', "192.168.x.x")
 KINDLE_PORT    = getattr(globals(), 'KINDLE_PORT', 22)
 KINDLE_USER    = getattr(globals(), 'KINDLE_USER', "root")
 KINDLE_REMOTE  = getattr(globals(), 'KINDLE_REMOTE', "/mnt/us/dashboard.png")

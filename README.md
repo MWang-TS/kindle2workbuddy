@@ -163,9 +163,9 @@ kindle2workbuddy/
 
 编辑 `settings.py`：
 ```python
-KINDLE_HOST = "192.168.8.24"       # Kindle WiFi IP
-WEATHER_CITY = "Shanghai"          # 天气城市
-WEATHER_CITY_CN = "上海"            # 中文显示名
+KINDLE_HOST = "192.168.x.x"       # Kindle WiFi IP
+WEATHER_CITY = "Beijing"          # 天气城市（改成你所在城市）
+WEATHER_CITY_CN = "北京"            # 中文显示名
 REFRESH_SECONDS = 30               # 推送间隔
 PAGE_DURATION = 30                 # 每页停留时间
 ```

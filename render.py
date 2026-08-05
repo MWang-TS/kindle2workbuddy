@@ -142,7 +142,7 @@ WEATHER_TTL = 600  # 缓存10分钟
 
 
 def get_weather():
-    """从 wttr.in 获取上海天气，失败则使用缓存"""
+    """从 wttr.in 获取天气（城市见 settings.py 的 WEATHER_CITY），失败则使用缓存"""
     # 先尝试读缓存
     try:
         if WEATHER_CACHE.exists():
@@ -1169,7 +1169,7 @@ def get_kindle_detail():
                 info.append(("运行时间", None, line.split("=")[1].strip()[:24]))
     except Exception:
         info.append(("SSH", None, "连接失败"))
-    info.append(("IP 地址", None, "192.168.8.24"))
+    info.append(("IP 地址", None, KINDLE_HOST))
     return info
 
 
