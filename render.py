@@ -237,6 +237,41 @@ def draw_progress_bar(draw, x, y, w, h, pct, fill_gray=GRAY):
         draw.rectangle([x + 1, y + 1, x + fill_w, y + h - 1], fill=fill_gray)
 
 
+def get_session_summary():
+    """会话统计：今日会话数 / 正在执行数 / 今日消耗 credit"""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        now_dt = dt.datetime.now()
+        today_start_ms = int(dt.datetime(now_dt.year, now_dt.month, now_dt.day).timestamp() * 1000)
+
+        today_count = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE is_playground=1 AND deleted_at IS NULL "
+            "AND updated_at >= ?", (today_start_ms,)
+        ).fetchone()[0]
+
+        running_count = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE is_playground=1 AND deleted_at IS NULL "
+            "AND status IN ('working','running','Pending','processing','queued')"
+        ).fetchone()[0]
+
+        total_credit = 0
+        for r in conn.execute(
+            "SELECT su.credit_json, su.used FROM sessions s "
+            "LEFT JOIN session_usage su ON s.id = su.session_id "
+            "WHERE s.is_playground=1 AND s.deleted_at IS NULL AND s.updated_at >= ?",
+            (today_start_ms,),
+        ):
+            c = sum_credit(r["credit_json"]) or r["used"] or 0
+            total_credit += c
+
+        conn.close()
+        return today_count, running_count, total_credit
+    except Exception:
+        return 0, 0, 0
+
+
 def draw_donut(draw, cx, cy, r, pct, width=13, show_pct=True):
     """绘制环形图（donut）：从12点方向顺时针显示 pct%
     pct: 0-100；中心显示百分比数字
@@ -334,7 +369,7 @@ def render_page1():
         automations = [{"name": "无活跃任务", "time": "--:--", "state": "idle"}]
     card_x = 16
     card_w = 138
-    card_h = 76
+    card_h = 72
     card_y = 120
     for i, task in enumerate(automations[:4]):
         cx = card_x + i * (card_w + 8)
@@ -351,14 +386,29 @@ def render_page1():
             mark, color = "待执行", DARK_GRAY
         else:
             mark, color = "异常", FG
-        draw.text((cx + 8, cy + 55), mark, font=f_small, fill=color)
+        draw.text((cx + 8, cy + 52), mark, font=f_small, fill=color)
+
+    # 会话总览
+    today_count, running_count, total_credit = get_session_summary()
+    sec_s = 210
+    draw_section_title(draw, "会话总览", sec_s + 5, f_section)
+    y = sec_s + 40
+    items = [
+        ("今日会话", f"{today_count}"),
+        ("正在执行", f"{running_count}"),
+        ("今日消耗", fmt_credit(total_credit)),
+    ]
+    for label, val in items:
+        draw.text((20, y), label, font=f_body, fill=FG)
+        draw.text((140, y), val, font=f_body, fill=FG)
+        y += 34
 
     # 多项目进度
-    sec2_y = 205
+    sec2_y = 335
     draw_section_title(draw, "多项目进度看板", sec2_y + 5, f_section)
     proj_y = sec2_y + 36
     row_h = 40
-    for i, p in enumerate(PROJECTS[:8]):
+    for i, p in enumerate(PROJECTS[:7]):
         ry = proj_y + i * row_h
         mark = STATUS_MARK.get(p["status"], "[ ]")
         draw.text((16, ry), mark, font=f_body, fill=FG)
@@ -556,7 +606,7 @@ def render_page4():
     f_clock = font(34, bold=True)
 
     # 顶部
-    draw.text((16, 10), "会话状态", font=f_section, fill=FG)
+    draw.text((16, 10), "当前会话信息", font=f_section, fill=FG)
     draw.text((16, 30), now["time"], font=f_clock, fill=FG)
     draw.text((W - 16, 10), "4/4", font=f_tiny, fill=DARK_GRAY)
     draw.line([(0, 80), (W, 80)], fill=FG, width=2)
