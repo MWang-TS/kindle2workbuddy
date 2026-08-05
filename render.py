@@ -263,7 +263,7 @@ def get_session_summary():
             "WHERE s.is_playground=1 AND s.deleted_at IS NULL AND s.updated_at >= ?",
             (today_start_ms,),
         ):
-            c = sum_credit(r["credit_json"]) or r["used"] or 0
+            c = sum_credit(r["credit_json"]) or 0
             total_credit += c
 
         conn.close()
@@ -625,7 +625,14 @@ def render_page4():
         run_mins = int((dt.datetime.now() - task["start"]).total_seconds() / 60)
         draw.text((20, y + 60), "开始 %s · 已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
                   font=f_body, fill=FG)
-        draw.text((20, y + 88), "消耗 " + fmt_credit(task["credit"]), font=f_body, fill=FG)
+        # 消耗：自定义模型显示 Token（used），标准模型显示 Credit（credit_json 实际值）
+        if task["is_custom"]:
+            usage_text = "Token " + fmt_token(task["token"])
+            if task["credit"] is not None:
+                usage_text += " | Credit " + fmt_credit(task["credit"])
+        else:
+            usage_text = "Credit " + fmt_credit(task["credit"])
+        draw.text((20, y + 88), usage_text, font=f_body, fill=FG)
         cwd = task["cwd"]
         if cwd:
             if len(cwd) > 32:
@@ -646,13 +653,16 @@ def render_page4():
             if len(name) > 24:
                 name = name[:23] + "…"
             draw.text((90, y), name, font=f_body, fill=FG)
-            # 第二行：模型（黑字，左半）+ 消耗（右半）+ 结果
+            # 第二行：模型（黑字，左半）+ 用量（右半）+ 结果
             model_text = "模型 " + item["model"]
             if len(model_text) > 14:
                 model_text = model_text[:13] + "…"
             draw.text((90, y + 28), model_text, font=f_body, fill=FG)
-            credit_text = "消耗 " + fmt_credit(item["credit"])
-            draw.text((350, y + 28), credit_text, font=f_body, fill=FG)
+            if item["is_custom"]:
+                usage_text = "Token " + fmt_token(item["token"])
+            else:
+                usage_text = "Credit " + fmt_credit(item["credit"])
+            draw.text((350, y + 28), usage_text, font=f_body, fill=FG)
             if item["result"] == 1:
                 mark = "✅"
             else:
@@ -693,7 +703,9 @@ def get_task_status():
             running.append({
                 "name": s["custom_title"] or s["title"] or "未命名会话",
                 "model": simplify_model(s["model"]),
-                "credit": sum_credit(s["credit_json"]) or s["used"] or None,
+                "is_custom": is_custom_model(s["model"]),
+                "credit": sum_credit(s["credit_json"]),   # 真实 credit（credit_json 求和），无则 None
+                "token": s["used"] or 0,                  # 用量/token（used 字段）
                 "status": s["status"],
                 "start": dt.datetime.fromtimestamp((s["created_at"] or 0) / 1000),
                 "cwd": s["cwd"] or "",
@@ -716,7 +728,9 @@ def get_task_status():
             recent.append({
                 "name": s["custom_title"] or s["title"] or "未命名会话",
                 "model": simplify_model(s["model"]),
-                "credit": sum_credit(s["credit_json"]) or s["used"] or None,
+                "is_custom": is_custom_model(s["model"]),
+                "credit": sum_credit(s["credit_json"]),   # 真实 credit，无则 None
+                "token": s["used"] or 0,                  # 用量/token
                 "result": 1 if s["status"] == "completed" else 0,
                 "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
@@ -734,17 +748,39 @@ def simplify_model(m):
     return m.split(":")[-1] if ":" in m else m
 
 
+def is_custom_model(m):
+    """是否为自定义/本地模型（custom-local 前缀）"""
+    return bool(m and str(m).startswith("custom-local"))
+
+
+def fmt_token(n):
+    """格式化 token 用量：158404 → 158.4K"""
+    if not n:
+        return "--"
+    try:
+        n = float(n)
+        if n >= 1000000:
+            return f"{n/1000000:.1f}M"
+        if n >= 1000:
+            return f"{n/1000:.1f}K"
+        return f"{n:.0f}"
+    except (TypeError, ValueError):
+        return "--"
+
+
 def fmt_credit(v):
-    """格式化用量：52129 → 52.1K"""
+    """格式化真实 credit：2024.82 → 2024.8（保留实际数值，不用 K 缩写）"""
     if v is None:
         return "--"
     try:
         v = float(v)
         if v >= 1000000:
-            return f"{v/1000000:.1f}M"
-        if v >= 1000:
+            return f"{v/1000000:.2f}M"
+        if v >= 10000:
             return f"{v/1000:.1f}K"
-        return f"{v:.0f}"
+        if v >= 100:
+            return f"{v:.1f}"
+        return f"{v:.2f}" if v != int(v) else f"{v:.0f}"
     except (TypeError, ValueError):
         return "--"
 
