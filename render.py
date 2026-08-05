@@ -334,7 +334,7 @@ def render_page1():
         automations = [{"name": "无活跃任务", "time": "--:--", "state": "idle"}]
     card_x = 16
     card_w = 138
-    card_h = 68
+    card_h = 76
     card_y = 120
     for i, task in enumerate(automations[:4]):
         cx = card_x + i * (card_w + 8)
@@ -363,7 +363,7 @@ def render_page1():
         mark = STATUS_MARK.get(p["status"], "[ ]")
         draw.text((16, ry), mark, font=f_body, fill=FG)
         draw.text((52, ry), p["name"], font=f_body, fill=FG)
-        draw.text((52, ry + 21), p["detail"], font=f_small, fill=DARK_GRAY)
+        draw.text((52, ry + 20), p["detail"], font=f_small, fill=DARK_GRAY)
         draw_progress_bar(draw, 360, ry + 4, 220, 14, p["progress"])
 
     # 底部
@@ -424,10 +424,10 @@ def render_page2():
         else:
             draw.text((20, y + 18), label, font=f_body, fill=FG)
             draw.text((160, y + 18), text, font=f_body, fill=DARK_GRAY)
-        y += 62
+        y += 50
 
     # 自动化任务下次运行
-    sec_y = 470
+    sec_y = 500
     draw_section_title(draw, "下次运行倒计时", sec_y, f_section)
     automations = get_automations()
     y = sec_y + 36
