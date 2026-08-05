@@ -35,6 +35,12 @@ TRACK_GRAY = 224         # 进度条/环形图背景轨道
 MARGIN = 20              # 页面左右边距
 GRID = 8                 # 基础网格单位
 
+# 垂直间距系统 v1.4：主标题段前距加大，段间/行间更宽松
+HEADER_TO_SECTION = 20   # 顶部分割线 → 第一个主标题（原8px，加大）
+SECTION_TO_SECTION = 22  # 上一区块内容结束 → 下一主标题（段前距，原约16-20px不等，统一加大）
+TITLE_TO_CONTENT = 38    # 主标题 → 首行内容（原32-36px不等，统一加大）
+ROW_SPACING = 36         # 简单label/value行间距（原32px，加大更透气）
+
 FONT_DIR = "C:/Windows/Fonts"
 FONT_REGULAR = os.path.join(FONT_DIR, "msyh.ttc")    # 微软雅黑
 FONT_BOLD = os.path.join(FONT_DIR, "simhei.ttf")     # 黑体（粗）
@@ -480,15 +486,15 @@ def render_page1():
     draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
     # ═══ 自动化任务 4 卡片（圆角卡片 + 状态图标）═══
-    y_sec1 = 92
+    y_sec1 = 84 + HEADER_TO_SECTION  # 原92，改用间距常量
     draw_section_title(draw, "自动化任务", y_sec1, f_section, subtitle=f"共{len(automations[:4])}项", f_sub=f_tiny)
     if not automations:
         automations = [{"name": "无活跃任务", "time": "--:--", "state": "idle"}]
     
     card_x = MARGIN
     card_w = 134
-    card_h = 76
-    card_y = y_sec1 + 36
+    card_h = 78  # 76→78，放大后文字略需更多高度
+    card_y = y_sec1 + TITLE_TO_CONTENT  # 原36，改用间距常量
     gap = 8
     
     for i, task in enumerate(automations[:4]):
@@ -504,25 +510,25 @@ def render_page1():
         draw.text((cx + 10, cy + 10), name, font=font(18, bold=True), fill=FG)
         
         # 计划时间
-        draw.text((cx + 10, cy + 34), task["time"], font=f_small, fill=DARK_GRAY)
+        draw.text((cx + 10, cy + 36), task["time"], font=f_small, fill=DARK_GRAY)
         
         # 状态图标 + 文字
         state_map = {"done": "done", "pending": "pending", "error": "error"}
         state = state_map.get(task["state"], "pending")
-        draw_status_icon(draw, cx + 10, cy + 54, state, size=14)
+        draw_status_icon(draw, cx + 10, cy + 56, state, size=14)
         if state == "done":
             mark = "已执行"
         elif state == "pending":
             mark = "待执行"
         else:
             mark = "异常"
-        draw.text((cx + 30, cy + 52), mark, font=f_small, fill=FG if state != "pending" else DARK_GRAY)
+        draw.text((cx + 30, cy + 54), mark, font=f_small, fill=FG if state != "pending" else DARK_GRAY)
 
     # ═══ 会话总览（数字卡片）═══
     today_count, running_count, total_credit = get_session_summary()
-    y_sec2 = 220
+    y_sec2 = card_y + card_h + SECTION_TO_SECTION  # 动态计算，原固定220
     draw_section_title(draw, "会话总览", y_sec2, f_section)
-    y = y_sec2 + 36
+    y = y_sec2 + TITLE_TO_CONTENT  # 原36，改用间距常量
     
     items = [
         ("今日会话", f"{today_count}"),
@@ -532,13 +538,13 @@ def render_page1():
     for label, val in items:
         draw.text((MARGIN + 4, y), label, font=f_body, fill=DARK_GRAY)
         draw.text((160, y), val, font=font(23, bold=True), fill=FG)  # 20→23 数值加粗放大
-        y += 32
+        y += ROW_SPACING  # 原32，改用间距常量
 
     # ═══ WorkBuddy 系统占用 ═══
-    y_sec3 = 350
+    y_sec3 = y + SECTION_TO_SECTION  # 动态计算，原固定350
     draw_section_title(draw, "系统占用", y_sec3, f_section)
     wb = get_workbuddy_usage()
-    y = y_sec3 + 36
+    y = y_sec3 + TITLE_TO_CONTENT  # 原36，改用间距常量
     
     items = [
         (".workbuddy", f"{wb['size_gb']:.2f} GB"),
@@ -549,7 +555,7 @@ def render_page1():
     for label, val in items:
         draw.text((MARGIN + 4, y), label, font=f_body, fill=DARK_GRAY)
         draw.text((240, y), val, font=f_body, fill=FG)
-        y += 32
+        y += ROW_SPACING  # 原32，改用间距常量
     
     # 磁盘使用率进度条（新版圆角）
     disk_pct = wb["disk_used"] / wb["disk_total"] * 100 if wb["disk_total"] else 0
@@ -589,10 +595,10 @@ def render_page2():
     draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
     # ═══ 电脑状态（三环形图，卡片承载）═══
-    y_sec1 = 92
+    y_sec1 = 84 + HEADER_TO_SECTION  # 原92，改用间距常量
     draw_section_title(draw, "电脑状态", y_sec1, f_section)
     pc_info = get_pc_detail()
-    card_top = y_sec1 + 36
+    card_top = y_sec1 + TITLE_TO_CONTENT  # 原36，改用间距常量
     card_h1 = 138
     draw_card(draw, MARGIN, card_top, W - 2 * MARGIN, card_h1)
     donut_positions = [(150, card_top + 66), (300, card_top + 66), (450, card_top + 66)]
@@ -606,10 +612,10 @@ def render_page2():
         draw.text((cx - 28, cy + 68), text, font=f_tiny, fill=DARK_GRAY)
 
     # ═══ Kindle 状态 ═══
-    sec_y = card_top + card_h1 + 20
+    sec_y = card_top + card_h1 + SECTION_TO_SECTION  # 原+20，改用间距常量
     draw_section_title(draw, "Kindle 状态", sec_y, f_section)
     kindle_info = get_kindle_detail()
-    card_top2 = sec_y + 36
+    card_top2 = sec_y + TITLE_TO_CONTENT  # 原36，改用间距常量
     # 动态计算卡片高度：电量行56px，其余每行30px，上下各留14px padding
     row_heights = [56 if (pct is not None and pct > 0) else 30 for _, pct, _ in kindle_info]
     card_h2 = sum(row_heights) + 28
@@ -627,15 +633,15 @@ def render_page2():
             y += 30
 
     # ═══ 自动化任务下次运行倒计时 ═══
-    sec_y3 = card_top2 + card_h2 + 20
+    sec_y3 = card_top2 + card_h2 + SECTION_TO_SECTION  # 原+20，改用间距常量
     draw_section_title(draw, "下次运行倒计时", sec_y3, f_section)
     automations = get_automations()
-    y = sec_y3 + 36
+    y = sec_y3 + TITLE_TO_CONTENT  # 原36，改用间距常量
     now_dt = dt.datetime.now()
     n_tasks = min(len(automations), 4) or 1
     # 动态压缩行高：footer分割线在y=720，预留10px安全边距，避免任务数增多时溢出
     available = 710 - y
-    row_h = max(32, min(46, int(available / n_tasks))) if available > 0 else 32
+    row_h = max(30, min(44, int(available / n_tasks))) if available > 0 else 30
     for task in automations[:4]:
         rrule_str = task.get("time", "--:--")
         try:
@@ -714,7 +720,7 @@ def render_page3():
 
     # ═══ 下 2/3：紧凑日历（含农历，卡片承载）═══
     grid_x = MARGIN
-    grid_y = 230
+    grid_y = 214 + HEADER_TO_SECTION  # 原230(gap16)，改用间距常量(gap20)，与其它页头部留白统一
     cell_w = (W - 2 * MARGIN) // 7   # 80
     cell_h = 68
     days_cn = ["一", "二", "三", "四", "五", "六", "日"]
@@ -728,7 +734,7 @@ def render_page3():
 
     cal = calendar.Calendar(firstweekday=0)  # 周一开头
     month_days = cal.monthdayscalendar(today.year, today.month)
-    cal_y = grid_y + 30
+    cal_y = grid_y + 34  # 原+30，加大星期头到首行日期的间距，更透气
     cell_gap = 4
     for week_idx, week in enumerate(month_days):
         for day_idx, day in enumerate(week):
@@ -782,9 +788,9 @@ def render_page4():
     draw.line([(0, 84), (W, 84)], fill=FG, width=2)
 
     # ═══ 区块1: 正在执行（卡片承载，几何图标代替emoji）═══
-    y_sec1 = 92
+    y_sec1 = 84 + HEADER_TO_SECTION  # 原92，改用间距常量
     draw_section_title(draw, "正在执行", y_sec1, f_section)
-    card_top = y_sec1 + 36
+    card_top = y_sec1 + TITLE_TO_CONTENT  # 原36，改用间距常量
     if running:
         task = running[0]
         card_h1 = 158
@@ -826,9 +832,9 @@ def render_page4():
         draw.text((MARGIN + 38, card_top + 18), "当前无执行中的会话", font=f_body, fill=DARK_GRAY)
 
     # ═══ 区块2: 最近会话（每条一张圆角卡片，状态图标代替emoji）═══
-    sec_r = card_top + card_h1 + 20
+    sec_r = card_top + card_h1 + SECTION_TO_SECTION  # 原+20，改用间距常量
     draw_section_title(draw, "最近会话", sec_r, f_section)
-    y = sec_r + 36
+    y = sec_r + TITLE_TO_CONTENT  # 原36，改用间距常量
     if recent:
         items = recent[:3]
         # 动态压缩行高，避免超出footer(720)
