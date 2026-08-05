@@ -646,29 +646,32 @@ def render_page4():
     draw_section_title(draw, "最近会话", sec_r, f_section)
     if recent:
         y = sec_r + 40
-        for item in recent[:4]:
+        for item in recent[:3]:
             # 第一行：时间 + 完整名称（黑字）
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
             name = item["name"]
             if len(name) > 24:
                 name = name[:23] + "…"
             draw.text((90, y), name, font=f_body, fill=FG)
-            # 第二行：模型（黑字，左半）+ 用量（右半）+ 结果
+            # 第二行：模型（黑字）+ 结果标记
             model_text = "模型 " + item["model"]
-            if len(model_text) > 14:
-                model_text = model_text[:13] + "…"
+            if len(model_text) > 20:
+                model_text = model_text[:19] + "…"
             draw.text((90, y + 28), model_text, font=f_body, fill=FG)
-            if item["is_custom"]:
-                usage_text = "Token " + fmt_token(item["token"])
-            else:
-                usage_text = "Credit " + fmt_credit(item["credit"])
-            draw.text((350, y + 28), usage_text, font=f_body, fill=FG)
             if item["result"] == 1:
                 mark = "✅"
             else:
                 mark = "❌"
             draw.text((W - 36, y + 28), mark, font=f_body, fill=FG)
-            y += 56
+            # 第三行：用量（自定义模型显示 Token，标准模型显示 Credit）
+            if item["is_custom"]:
+                usage_text = "Token " + fmt_token(item["token"])
+                if item["credit"] is not None:
+                    usage_text += " | Credit " + fmt_credit(item["credit"])
+            else:
+                usage_text = "Credit " + fmt_credit(item["credit"])
+            draw.text((90, y + 54), usage_text, font=f_small, fill=DARK_GRAY)
+            y += 78
     else:
         draw.text((20, sec_r + 40), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
 
