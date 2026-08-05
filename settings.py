@@ -18,5 +18,6 @@ WEATHER_CITY   = "Shanghai"   # wttr.in 城市名
 WEATHER_CITY_CN = "上海"       # 显示用中文名
 
 # ── 刷新间隔 ────────────────────────────────────────
-REFRESH_MINUTES = 3  # 定时刷新间隔（分钟）
+REFRESH_SECONDS = 30  # 推送间隔（秒）
+PAGE_DURATION   = 120 # 每页停留时间（秒），4 页循环 = 8 分钟一轮
 PAGES = 4             # 轮播页数

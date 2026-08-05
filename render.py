@@ -246,16 +246,21 @@ def render():
 
 
 def next_refresh():
-    """下次刷新时间（3分钟后）"""
-    n = dt.datetime.now() + dt.timedelta(minutes=3)
-    return n.strftime("%H:%M")
+    """下次刷新时间（秒级）"""
+    n = dt.datetime.now() + dt.timedelta(seconds=30)
+    return n.strftime("%H:%M:%S")
 
 
 # ── 页码路由 ───────────────────────────────────────────
 def get_page_for_time():
-    """根据当前时间分钟数决定页码（每3分钟换一页，4页循环）"""
-    minute = dt.datetime.now().minute
-    return (minute // 3) % 4 + 1  # 1-4
+    """根据当天秒数决定页码（每 PAGE_DURATION 秒换一页，4 页循环）
+
+    PAGE_DURATION 默认 120 秒（2 分钟），4 页共 8 分钟一轮。
+    推送间隔 30 秒，每页被推送 4 次。
+    """
+    now = dt.datetime.now()
+    total_seconds = now.hour * 3600 + now.minute * 60 + now.second
+    return (total_seconds // PAGE_DURATION) % 4 + 1  # 1-4
 
 
 def render_page(page_num):
