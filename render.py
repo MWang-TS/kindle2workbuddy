@@ -294,28 +294,28 @@ def render_page1():
     sys.path.insert(0, str(BASE_DIR))
     from config import PROJECTS, TODOS, STATUS_MARK, SHORT_NAME
 
-    f_section = font(16, bold=True)
-    f_body = font(14)
-    f_small = font(12)
-    f_tiny = font(11)
-    f_clock = font(26, bold=True)
+    f_section = font(22, bold=True)
+    f_body = font(17)
+    f_small = font(15)
+    f_tiny = font(13)
+    f_clock = font(34, bold=True)
 
     # 顶部
     draw.text((16, 10), now["date"], font=f_section, fill=FG)
-    draw.text((16, 34), now["time"], font=f_clock, fill=FG)
+    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
     draw.text((W - 130, 14), weather, font=f_body, fill=DARK_GRAY)
-    draw.text((W - 130, 38), WEATHER_CITY_CN, font=f_small, fill=GRAY)
-    draw.text((W - 16, 10), "1/4", font=f_tiny, fill=GRAY)
-    draw.line([(0, 65), (W, 65)], fill=FG, width=2)
+    draw.text((W - 130, 42), WEATHER_CITY_CN, font=f_small, fill=DARK_GRAY)
+    draw.text((W - 16, 10), "1/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
 
     # 自动化任务 4 卡片
-    draw_section_title(draw, "自动化任务", 72, f_section)
+    draw_section_title(draw, "自动化任务", 88, f_section)
     if not automations:
         automations = [{"name": "无活跃任务", "time": "--:--", "state": "idle"}]
     card_x = 16
     card_w = 138
-    card_h = 70
-    card_y = 108
+    card_h = 68
+    card_y = 120
     for i, task in enumerate(automations[:4]):
         cx = card_x + i * (card_w + 8)
         cy = card_y
@@ -324,34 +324,34 @@ def render_page1():
         if len(name) > 8:
             name = name[:7] + "…"
         draw.text((cx + 8, cy + 8), name, font=f_body, fill=FG)
-        draw.text((cx + 8, cy + 28), "计划 " + task["time"], font=f_small, fill=GRAY)
+        draw.text((cx + 8, cy + 32), "计划 " + task["time"], font=f_small, fill=DARK_GRAY)
         if task["state"] == "done":
             mark, color = "已执行", FG
         elif task["state"] == "pending":
             mark, color = "待执行", DARK_GRAY
         else:
             mark, color = "异常", FG
-        draw.text((cx + 8, cy + 48), mark, font=f_small, fill=color)
+        draw.text((cx + 8, cy + 55), mark, font=f_small, fill=color)
 
     # 多项目进度
-    sec2_y = 200
+    sec2_y = 205
     draw_section_title(draw, "多项目进度看板", sec2_y + 5, f_section)
     proj_y = sec2_y + 36
-    row_h = 32
-    for i, p in enumerate(PROJECTS[:8]):
+    row_h = 40
+    for i, p in enumerate(PROJECTS[:6]):
         ry = proj_y + i * row_h
         mark = STATUS_MARK.get(p["status"], "[ ]")
         draw.text((16, ry), mark, font=f_body, fill=FG)
         draw.text((52, ry), p["name"], font=f_body, fill=FG)
-        draw.text((52, ry + 16), p["detail"], font=f_small, fill=GRAY)
-        draw_progress_bar(draw, 360, ry + 4, 220, 12, p["progress"])
+        draw.text((52, ry + 21), p["detail"], font=f_small, fill=DARK_GRAY)
+        draw_progress_bar(draw, 360, ry + 4, 220, 14, p["progress"])
 
     # 今日待办
-    sec3_y = 495
+    sec3_y = 500
     draw_section_title(draw, "今日待办", sec3_y + 5, f_section)
     todo_y = sec3_y + 36
-    for i, todo in enumerate(TODOS[:6]):
-        ty = todo_y + i * 28
+    for i, todo in enumerate(TODOS[:4]):
+        ty = todo_y + i * 38
         draw.text((16, ty), "[ ]", font=f_body, fill=FG)
         draw.text((52, ty), todo, font=f_body, fill=FG)
 
@@ -372,46 +372,46 @@ def render_page2():
     sys_info = get_system_info()
     kindle_status = get_kindle_status()
 
-    f_section = font(16, bold=True)
-    f_body = font(14)
-    f_small = font(12)
-    f_tiny = font(11)
-    f_clock = font(26, bold=True)
+    f_section = font(22, bold=True)
+    f_body = font(17)
+    f_small = font(15)
+    f_tiny = font(13)
+    f_clock = font(34, bold=True)
 
     # 顶部
     draw.text((16, 10), "系统状态", font=f_section, fill=FG)
-    draw.text((16, 34), now["time"], font=f_clock, fill=FG)
+    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
     draw.text((W - 130, 14), sys_info, font=f_body, fill=DARK_GRAY)
-    draw.text((W - 130, 38), "电脑", font=f_small, fill=GRAY)
-    draw.text((W - 16, 10), "2/4", font=f_tiny, fill=GRAY)
-    draw.line([(0, 65), (W, 65)], fill=FG, width=2)
+    draw.text((W - 130, 42), "电脑", font=f_small, fill=DARK_GRAY)
+    draw.text((W - 16, 10), "2/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
 
     # 电脑详情
-    draw_section_title(draw, "电脑状态", 72, f_section)
+    draw_section_title(draw, "电脑状态", 88, f_section)
     pc_info = get_pc_detail()
-    y = 110
+    y = 126
     for k, v in pc_info:
         draw.text((20, y), k, font=f_body, fill=FG)
         draw.text((300, y), v, font=f_body, fill=DARK_GRAY)
-        y += 26
+        y += 30
 
     # Kindle 状态
-    sec_y = 250
+    sec_y = 280
     draw_section_title(draw, "Kindle 状态", sec_y, f_section)
     kindle_info = get_kindle_detail()
     y = sec_y + 36
     for k, v in kindle_info:
         draw.text((20, y), k, font=f_body, fill=FG)
         draw.text((300, y), v, font=f_body, fill=DARK_GRAY)
-        y += 26
+        y += 30
 
     # 自动化任务下次运行
-    sec_y = 430
+    sec_y = 470
     draw_section_title(draw, "下次运行倒计时", sec_y, f_section)
     automations = get_automations()
     y = sec_y + 36
     now_dt = dt.datetime.now()
-    for task in automations[:5]:
+    for task in automations[:4]:
         rrule_str = task.get("time", "--:--")
         try:
             h, m = rrule_str.split(":")
@@ -431,7 +431,7 @@ def render_page2():
         draw.text((20, y), task["name"][:10], font=f_body, fill=FG)
         draw.text((300, y), f"{label} {rrule_str}", font=f_body, fill=DARK_GRAY)
         draw.text((W - 80, y), count, font=f_body, fill=FG)
-        y += 26
+        y += 32
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -450,48 +450,64 @@ def render_page3():
     sys_info = get_system_info()
     today = dt.datetime.now()
 
-    f_section = font(16, bold=True)
-    f_body = font(14)
-    f_small = font(12)
-    f_tiny = font(11)
-    f_clock = font(26, bold=True)
+    f_section = font(22, bold=True)
+    f_body = font(17)
+    f_small = font(15)
+    f_tiny = font(13)
+    f_clock = font(34, bold=True)
+    f_xxl = font(72, bold=True)   # 超大时钟
     f_day = font(20, bold=True)
 
-    # 顶部
-    draw.text((16, 10), "日历", font=f_section, fill=FG)
-    draw.text((16, 34), f"{today.year}年{today.month}月", font=f_clock, fill=FG)
-    draw.text((W - 16, 10), "3/4", font=f_tiny, fill=GRAY)
-    draw.line([(0, 65), (W, 65)], fill=FG, width=2)
+    # ═══ 上 1/3：大数字时钟 + 日期 + 农历 ═══
+    now_dt = dt.datetime.now()
+    lunar_info = get_lunar(now_dt.year, now_dt.month, now_dt.day)
+    gan = "甲乙丙丁戊己庚辛壬癸"[(lunar_info[0] - 4) % 10]
+    zhi = "子丑寅卯辰巳午未申酉戌亥"[(lunar_info[0] - 4) % 12]
+    lunar_str = f"农历{gan}{zhi}年 {('闰' if lunar_info[2] else '')}{LUNAR_MON_CN[lunar_info[1]]}月{LUNAR_DAY_CN[lunar_info[3]]}"
 
-    # 星期表头
+    # 超大时间居中
+    time_str = now["time"]
+    time_bbox = draw.textbbox((0, 0), time_str, font=f_xxl)
+    time_w = time_bbox[2] - time_bbox[0]
+    draw.text(((W - time_w) / 2, 30), time_str, font=f_xxl, fill=FG)
+    # 日期 + 农历
+    draw.text((16, 165), now["date"], font=f_section, fill=FG)
+    draw.text((W - 130, 170), "3/4", font=f_tiny, fill=DARK_GRAY)
+    draw.text((16, 205), lunar_str, font=f_section, fill=FG)
+    draw.line([(0, 260), (W, 260)], fill=FG, width=2)
+
+    # ═══ 下 2/3：紧凑日历（含农历）═══
     days_cn = ["一", "二", "三", "四", "五", "六", "日"]
-    grid_x = 30
-    grid_y = 100
-    cell_w = 76
-    cell_h = 90
+    grid_x = 20
+    grid_y = 278
+    cell_w = (W - 40) // 7   # 80
+    cell_h = 62
     for i, d in enumerate(days_cn):
         x = grid_x + i * cell_w
-        draw.text((x + 30, grid_y), d, font=f_body, fill=GRAY)
+        draw.text((x + 30, grid_y), d, font=f_small, fill=DARK_GRAY)
 
-    # 日历网格
     cal = calendar.Calendar(firstweekday=0)  # 周一开头
     month_days = cal.monthdayscalendar(today.year, today.month)
+    cal_y = grid_y + 28
     for week_idx, week in enumerate(month_days):
         for day_idx, day in enumerate(week):
             if day == 0:
                 continue
             x = grid_x + day_idx * cell_w
-            y = grid_y + 40 + week_idx * cell_h
-            # 今天是高亮（反白显示）
+            y = cal_y + week_idx * cell_h
+            lunar_txt = lunar_day_short(today.year, today.month, day)
             if day == today.day:
-                draw.rectangle([x, y, x + cell_w - 4, y + cell_h - 20], fill=FG)
-                draw.text((x + 28, y + 8), str(day), font=f_day, fill=BG)
+                # 今天反白
+                draw.rectangle([x, y, x + cell_w - 3, y + cell_h - 6], fill=FG)
+                draw.text((x + 24, y + 4), str(day), font=f_day, fill=BG)
+                draw.text((x + 16, y + 30), lunar_txt[:4], font=f_tiny, fill=BG)
             else:
-                # 周末用浅灰
-                if day_idx >= 5:
-                    draw.text((x + 28, y + 8), str(day), font=f_day, fill=GRAY)
+                if day_idx >= 5:  # 周末
+                    col = DARK_GRAY
                 else:
-                    draw.text((x + 28, y + 8), str(day), font=f_day, fill=FG)
+                    col = FG
+                draw.text((x + 24, y + 4), str(day), font=f_day, fill=col)
+                draw.text((x + 16, y + 30), lunar_txt[:4], font=f_tiny, fill=DARK_GRAY)
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -511,22 +527,22 @@ def render_page4():
     sys.path.insert(0, str(BASE_DIR))
     from config import SHORT_NAME
 
-    f_section = font(16, bold=True)
-    f_body = font(14)
-    f_small = font(12)
-    f_tiny = font(11)
-    f_clock = font(26, bold=True)
+    f_section = font(22, bold=True)
+    f_body = font(17)
+    f_small = font(15)
+    f_tiny = font(13)
+    f_clock = font(34, bold=True)
 
     # 顶部
     draw.text((16, 10), "任务执行状态", font=f_section, fill=FG)
-    draw.text((16, 34), now["time"], font=f_clock, fill=FG)
-    draw.text((W - 16, 10), "4/4", font=f_tiny, fill=GRAY)
-    draw.line([(0, 65), (W, 65)], fill=FG, width=2)
+    draw.text((16, 30), now["time"], font=f_clock, fill=FG)
+    draw.text((W - 16, 10), "4/4", font=f_tiny, fill=DARK_GRAY)
+    draw.line([(0, 80), (W, 80)], fill=FG, width=2)
 
     # 区块1: 任务总览
-    draw_section_title(draw, "任务总览", 72, f_section)
-    y = 108
-    for task in tasks[:5]:
+    draw_section_title(draw, "任务总览", 88, f_section)
+    y = 124
+    for task in tasks[:4]:
         # 名称（简称）
         name = SHORT_NAME.get(task["name"], task["name"])
         if len(name) > 10:
@@ -538,32 +554,32 @@ def render_page4():
         elif task["last_result"] == 0:
             mark, color = "❌", FG
         else:
-            mark, color = "·", GRAY
+            mark, color = "·", DARK_GRAY
         draw.text((W - 40, y), mark, font=f_body, fill=color)
         # 第二行：计划 + 模型
-        draw.text((20, y + 18), "计划 " + task["time"], font=f_tiny, fill=GRAY)
-        draw.text((90, y + 18), "模型 " + task["model"], font=f_tiny, fill=GRAY)
+        draw.text((20, y + 22), "计划 " + task["time"], font=f_tiny, fill=DARK_GRAY)
+        draw.text((110, y + 22), "模型 " + task["model"], font=f_tiny, fill=DARK_GRAY)
         # 第三行：credit + 最近时间
         credit_str = fmt_credit(task["credit"])
-        draw.text((20, y + 34), "耗 " + credit_str, font=f_tiny, fill=DARK_GRAY)
+        draw.text((20, y + 40), "耗 " + credit_str, font=f_tiny, fill=DARK_GRAY)
         if task["last_time"]:
-            draw.text((120, y + 34), fmt_time(task["last_time"]), font=f_tiny, fill=LIGHT_GRAY)
-        y += 56
+            draw.text((120, y + 40), fmt_time(task["last_time"]), font=f_tiny, fill=DARK_GRAY)
+        y += 58
 
     # 区块2: 最近执行记录
-    sec2_y = 400
+    sec2_y = 385
     draw_section_title(draw, "最近执行记录", sec2_y, f_section)
     y = sec2_y + 34
-    for item in recent[:6]:
+    for item in recent[:5]:
         # 时间
-        draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=GRAY)
+        draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
         # 名称
         name = SHORT_NAME.get(item["name"], item["name"])
         if len(name) > 6:
             name = name[:5] + "…"
         draw.text((88, y), name, font=f_body, fill=FG)
         # 模型
-        draw.text((190, y), item["model"][:16], font=f_tiny, fill=GRAY)
+        draw.text((190, y), item["model"][:16], font=f_tiny, fill=DARK_GRAY)
         # credit
         if item["credit"]:
             draw.text((390, y), fmt_credit(item["credit"]), font=f_tiny, fill=DARK_GRAY)
@@ -575,7 +591,7 @@ def render_page4():
         else:
             mark, color = "⏳", DARK_GRAY
         draw.text((W - 36, y), mark, font=f_body, fill=color)
-        y += 30
+        y += 36
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -681,6 +697,86 @@ def fmt_credit(v):
         return "--"
 
 
+# ── 农历计算（1900-2100，内置算法）─────────────────────
+LUNAR_DATA = [
+0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,
+0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+0x092e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,
+0x0d520]
+
+LUNAR_MON_CN = ['', '正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '腊']
+LUNAR_DAY_CN = ['', '初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+                '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+                '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十']
+
+
+def _lunar_leap_month(y):
+    return LUNAR_DATA[y - 1900] & 0xF
+
+
+def _lunar_leap_days(y):
+    if _lunar_leap_month(y) == 0:
+        return 0
+    return 30 if (LUNAR_DATA[y - 1900] & 0x10000) else 29
+
+
+def _lunar_month_days(y, m):
+    return 29 + ((LUNAR_DATA[y - 1900] >> (16 - m)) & 1)
+
+
+def _lunar_year_days(y):
+    return sum(_lunar_month_days(y, m) for m in range(1, 13)) + _lunar_leap_days(y)
+
+
+def get_lunar(y, m, d):
+    """公历 y-m-d → 农历 (年份, 月份, 是否闰月, 日)"""
+    offset = (dt.date(y, m, d) - dt.date(1900, 1, 31)).days
+    ly = 1900
+    while offset >= _lunar_year_days(ly):
+        offset -= _lunar_year_days(ly)
+        ly += 1
+    mi = 1
+    is_leap = False
+    while mi <= 12:
+        lm = _lunar_leap_month(ly)
+        if lm > 0 and mi == lm + 1:
+            if offset < _lunar_leap_days(ly):
+                is_leap = True
+                mi = lm
+                break
+            offset -= _lunar_leap_days(ly)
+        if offset < _lunar_month_days(ly, mi):
+            break
+        offset -= _lunar_month_days(ly, mi)
+        mi += 1
+    return ly, mi, is_leap, offset + 1
+
+
+def lunar_day_short(y, m, d):
+    """返回农历简短表示：初一显示月份（如'六月'），其余显示日（如'廿三'）"""
+    _, lm, is_leap, ld = get_lunar(y, m, d)
+    if ld == 1:
+        return ("闰" if is_leap else "") + LUNAR_MON_CN[lm] + "月"
+    return LUNAR_DAY_CN[ld]
+
+
 def sum_credit(credit_json_str):
     """从 credit_json 字符串求和总 credit 消耗"""
     if not credit_json_str:
@@ -708,11 +804,11 @@ def draw_footer(draw, now, sys_info):
     """底部状态栏（所有页通用）"""
     import subprocess as sp
     kindle_status = get_kindle_status()
-    f_tiny = font(11)
+    f_tiny = font(13)
     draw.line([(0, 720), (W, 720)], fill=FG, width=2)
-    draw.text((16, 730), f"更新 {now['time']} | 下次 {next_refresh()}", font=f_tiny, fill=GRAY)
-    draw.text((16, 752), f"{kindle_status} | {sys_info}", font=f_tiny, fill=GRAY)
-    draw.text((16, 775), "WorkBuddy Kindle Dashboard v1.2", font=f_tiny, fill=LIGHT_GRAY)
+    draw.text((16, 730), f"更新 {now['time']} | 下次 {next_refresh()}", font=f_tiny, fill=DARK_GRAY)
+    draw.text((16, 752), f"{kindle_status} | {sys_info}", font=f_tiny, fill=DARK_GRAY)
+    draw.text((16, 775), "WorkBuddy Kindle Dashboard v1.2", font=f_tiny, fill=DARK_GRAY)
 
 
 def get_pc_detail():
