@@ -66,7 +66,7 @@ def get_automations():
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT name, status, schedule_type, rrule FROM automations "
-            "WHERE status='ACTIVE'"
+            "WHERE status='ACTIVE' AND deleted_at IS NULL"
         ).fetchall()
         conn.close()
 
@@ -498,46 +498,76 @@ def render_page3():
     return OUTPUT_PNG
 
 
-# ── 页4: 飞书日程（占位）──────────────────────────────
+# ── 页4: 任务执行状态 ────────────────────────────────
 def render_page4():
-    """飞书日程（占位）：等待连接器接入"""
+    """任务执行状态：自动化任务总览 + 最近执行记录"""
     img = Image.new("L", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
     now = get_now_str()
     sys_info = get_system_info()
+    tasks, recent = get_task_status()
+
+    sys.path.insert(0, str(BASE_DIR))
+    from config import SHORT_NAME
 
     f_section = font(16, bold=True)
     f_body = font(14)
     f_small = font(12)
     f_tiny = font(11)
     f_clock = font(26, bold=True)
-    f_big = font(28, bold=True)
 
     # 顶部
-    draw.text((16, 10), "飞书日程", font=f_section, fill=FG)
+    draw.text((16, 10), "任务执行状态", font=f_section, fill=FG)
     draw.text((16, 34), now["time"], font=f_clock, fill=FG)
     draw.text((W - 16, 10), "4/4", font=f_tiny, fill=GRAY)
     draw.line([(0, 65), (W, 65)], fill=FG, width=2)
 
-    # 飞书连接器状态
-    draw_section_title(draw, "飞书连接", 72, f_section)
+    # 区块1: 任务总览
+    draw_section_title(draw, "任务总览", 72, f_section)
+    y = 108
+    for task in tasks[:5]:
+        # 名称（简称）
+        name = SHORT_NAME.get(task["name"], task["name"])
+        if len(name) > 10:
+            name = name[:9] + "…"
+        draw.text((20, y), name, font=f_body, fill=FG)
+        # 计划时间
+        draw.text((250, y), "计划 " + task["time"], font=f_small, fill=GRAY)
+        # 最近结果
+        if task["last_result"] == 1:
+            mark, color = "最近✅", FG
+        elif task["last_result"] == 0:
+            mark, color = "最近❌", FG
+        else:
+            mark, color = "暂无运行", GRAY
+        draw.text((W - 130, y), mark, font=f_body, fill=color)
+        # 最近运行时间
+        if task["last_time"]:
+            draw.text((250, y + 18), fmt_time(task["last_time"]), font=f_tiny, fill=LIGHT_GRAY)
+        y += 42
 
-    # 大字提示
-    draw.text((40, 200), "飞书连接器离线", font=f_big, fill=DARK_GRAY)
-    draw.text((40, 240), "当前无法拉取日程和待办", font=f_body, fill=GRAY)
-    draw.text((40, 280), "等连接器重新接入后自动填充", font=f_small, fill=GRAY)
-
-    # 手动同步占位
-    sec_y = 400
-    draw_section_title(draw, "今日待办（手动）", sec_y, f_section)
-    sys.path.insert(0, str(BASE_DIR))
-    from config import TODOS
-    y = sec_y + 36
-    for todo in TODOS[:5]:
-        draw.text((20, y), "[ ]", font=f_body, fill=FG)
-        draw.text((52, y), todo, font=f_body, fill=FG)
-        y += 28
+    # 区块2: 最近执行记录
+    sec2_y = 330
+    draw_section_title(draw, "最近执行记录", sec2_y, f_section)
+    y = sec2_y + 34
+    for item in recent[:6]:
+        # 时间
+        draw.text((20, y), fmt_time(item["time"]), font=f_small, fill=GRAY)
+        # 名称
+        name = SHORT_NAME.get(item["name"], item["name"])
+        if len(name) > 8:
+            name = name[:7] + "…"
+        draw.text((110, y), name, font=f_body, fill=FG)
+        # 结果
+        if item["result"] == 1:
+            mark, color = "✅ 成功", FG
+        elif item["result"] == 0:
+            mark, color = "❌ 失败", FG
+        else:
+            mark, color = "⏳ 进行中", DARK_GRAY
+        draw.text((W - 130, y), mark, font=f_body, fill=color)
+        y += 32
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -545,6 +575,75 @@ def render_page4():
 
 
 # ── 辅助函数 ───────────────────────────────────────────
+def get_task_status():
+    """获取自动化任务总览 + 最近执行记录（从 workbuddy.db）"""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+
+        # 任务总览
+        tasks = []
+        for r in conn.execute(
+            "SELECT id, name, rrule FROM automations WHERE status='ACTIVE' AND deleted_at IS NULL"
+        ):
+            rrule = r["rrule"] or ""
+            hour = minute = None
+            for part in rrule.split(";"):
+                if part.startswith("BYHOUR="):
+                    hour = part.split("=")[1]
+                elif part.startswith("BYMINUTE="):
+                    minute = part.split("=")[1]
+            time_str = f"{hour}:{minute.zfill(2)}" if hour else "--:--"
+            last = conn.execute(
+                "SELECT result_success, updated_at FROM automation_runs "
+                "WHERE automation_id=? ORDER BY updated_at DESC LIMIT 1",
+                (r["id"],),
+            ).fetchone()
+            last_result = None
+            last_time = None
+            if last:
+                last_result = last["result_success"]
+                last_time = dt.datetime.fromtimestamp(last["updated_at"] / 1000)
+            tasks.append({
+                "name": r["name"],
+                "time": time_str,
+                "last_result": last_result,
+                "last_time": last_time,
+            })
+
+        # 最近执行记录
+        recent = []
+        for r in conn.execute(
+            "SELECT automation_id, result_success, updated_at FROM automation_runs "
+            "ORDER BY updated_at DESC LIMIT 8"
+        ):
+            name_row = conn.execute(
+                "SELECT name FROM automations WHERE id=?", (r["automation_id"],)
+            ).fetchone()
+            name = name_row["name"] if name_row else "未知任务"
+            recent.append({
+                "name": name,
+                "result": r["result_success"],
+                "time": dt.datetime.fromtimestamp(r["updated_at"] / 1000),
+            })
+
+        conn.close()
+        return tasks, recent
+    except Exception:
+        return [], []
+
+
+def fmt_time(t):
+    """格式化时间为简洁显示：今天 HH:MM / 昨天 HH:MM / MM-DD"""
+    now = dt.datetime.now()
+    if t.date() == now.date():
+        return t.strftime("%H:%M")
+    if (now - t).days == 1:
+        return "昨天 " + t.strftime("%H:%M")
+    return t.strftime("%m-%d")
+
+
 def draw_footer(draw, now, sys_info):
     """底部状态栏（所有页通用）"""
     import subprocess as sp
