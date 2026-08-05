@@ -500,7 +500,7 @@ def render_page3():
 
 # ── 页4: 任务执行状态 ────────────────────────────────
 def render_page4():
-    """任务执行状态：自动化任务总览 + 最近执行记录"""
+    """任务执行状态：任务名称/模型/credit/结果"""
     img = Image.new("L", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
@@ -532,42 +532,50 @@ def render_page4():
         if len(name) > 10:
             name = name[:9] + "…"
         draw.text((20, y), name, font=f_body, fill=FG)
-        # 计划时间
-        draw.text((250, y), "计划 " + task["time"], font=f_small, fill=GRAY)
         # 最近结果
         if task["last_result"] == 1:
-            mark, color = "最近✅", FG
+            mark, color = "✅", FG
         elif task["last_result"] == 0:
-            mark, color = "最近❌", FG
+            mark, color = "❌", FG
         else:
-            mark, color = "暂无运行", GRAY
-        draw.text((W - 130, y), mark, font=f_body, fill=color)
-        # 最近运行时间
+            mark, color = "·", GRAY
+        draw.text((W - 40, y), mark, font=f_body, fill=color)
+        # 第二行：计划 + 模型
+        draw.text((20, y + 18), "计划 " + task["time"], font=f_tiny, fill=GRAY)
+        draw.text((90, y + 18), "模型 " + task["model"], font=f_tiny, fill=GRAY)
+        # 第三行：credit + 最近时间
+        credit_str = fmt_credit(task["credit"])
+        draw.text((20, y + 34), "耗 " + credit_str, font=f_tiny, fill=DARK_GRAY)
         if task["last_time"]:
-            draw.text((250, y + 18), fmt_time(task["last_time"]), font=f_tiny, fill=LIGHT_GRAY)
-        y += 42
+            draw.text((120, y + 34), fmt_time(task["last_time"]), font=f_tiny, fill=LIGHT_GRAY)
+        y += 56
 
     # 区块2: 最近执行记录
-    sec2_y = 330
+    sec2_y = 400
     draw_section_title(draw, "最近执行记录", sec2_y, f_section)
     y = sec2_y + 34
     for item in recent[:6]:
         # 时间
-        draw.text((20, y), fmt_time(item["time"]), font=f_small, fill=GRAY)
+        draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=GRAY)
         # 名称
         name = SHORT_NAME.get(item["name"], item["name"])
-        if len(name) > 8:
-            name = name[:7] + "…"
-        draw.text((110, y), name, font=f_body, fill=FG)
+        if len(name) > 6:
+            name = name[:5] + "…"
+        draw.text((88, y), name, font=f_body, fill=FG)
+        # 模型
+        draw.text((190, y), item["model"][:16], font=f_tiny, fill=GRAY)
+        # credit
+        if item["credit"]:
+            draw.text((390, y), fmt_credit(item["credit"]), font=f_tiny, fill=DARK_GRAY)
         # 结果
         if item["result"] == 1:
-            mark, color = "✅ 成功", FG
+            mark, color = "✅", FG
         elif item["result"] == 0:
-            mark, color = "❌ 失败", FG
+            mark, color = "❌", FG
         else:
-            mark, color = "⏳ 进行中", DARK_GRAY
-        draw.text((W - 130, y), mark, font=f_body, fill=color)
-        y += 32
+            mark, color = "⏳", DARK_GRAY
+        draw.text((W - 36, y), mark, font=f_body, fill=color)
+        y += 30
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -576,16 +584,17 @@ def render_page4():
 
 # ── 辅助函数 ───────────────────────────────────────────
 def get_task_status():
-    """获取自动化任务总览 + 最近执行记录（从 workbuddy.db）"""
+    """获取自动化任务执行状态：名称/计划时间/模型/credit/结果/最近时间"""
     import sqlite3
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
 
-        # 任务总览
+        # 任务总览：automations 关联最近一次后台会话
         tasks = []
         for r in conn.execute(
-            "SELECT id, name, rrule FROM automations WHERE status='ACTIVE' AND deleted_at IS NULL"
+            "SELECT id, name, rrule, model_id FROM automations "
+            "WHERE status='ACTIVE' AND deleted_at IS NULL"
         ):
             rrule = r["rrule"] or ""
             hour = minute = None
@@ -595,43 +604,94 @@ def get_task_status():
                 elif part.startswith("BYMINUTE="):
                     minute = part.split("=")[1]
             time_str = f"{hour}:{minute.zfill(2)}" if hour else "--:--"
-            last = conn.execute(
-                "SELECT result_success, updated_at FROM automation_runs "
-                "WHERE automation_id=? ORDER BY updated_at DESC LIMIT 1",
-                (r["id"],),
+
+            # 最近一次后台会话（custom_title 匹配任务名）
+            session = conn.execute(
+                "SELECT s.id, s.model, s.status, s.updated_at, su.credit_json, su.used "
+                "FROM sessions s "
+                "LEFT JOIN session_usage su ON s.id = su.session_id "
+                "WHERE s.is_background_automation=1 AND s.custom_title=? "
+                "ORDER BY s.updated_at DESC LIMIT 1",
+                (r["name"],),
             ).fetchone()
+
             last_result = None
             last_time = None
-            if last:
-                last_result = last["result_success"]
-                last_time = dt.datetime.fromtimestamp(last["updated_at"] / 1000)
+            model = r["model_id"]
+            credit = None
+            if session:
+                last_time = dt.datetime.fromtimestamp(session["updated_at"] / 1000)
+                last_result = 1 if session["status"] == "completed" else (0 if session["status"] == "failed" else None)
+                if session["model"]:
+                    model = session["model"]
+                credit = sum_credit(session["credit_json"]) or session["used"] or None
+
             tasks.append({
                 "name": r["name"],
                 "time": time_str,
+                "model": simplify_model(model),
+                "credit": credit,
                 "last_result": last_result,
                 "last_time": last_time,
             })
 
-        # 最近执行记录
+        # 最近执行记录：后台自动化会话（含 credit 和模型）
         recent = []
-        for r in conn.execute(
-            "SELECT automation_id, result_success, updated_at FROM automation_runs "
-            "ORDER BY updated_at DESC LIMIT 8"
+        for s in conn.execute(
+            "SELECT s.custom_title, s.model, s.status, s.updated_at, su.credit_json, su.used "
+            "FROM sessions s "
+            "LEFT JOIN session_usage su ON s.id = su.session_id "
+            "WHERE s.is_background_automation=1 AND s.custom_title IS NOT NULL "
+            "AND s.deleted_at IS NULL "
+            "ORDER BY s.updated_at DESC LIMIT 8"
         ):
-            name_row = conn.execute(
-                "SELECT name FROM automations WHERE id=?", (r["automation_id"],)
-            ).fetchone()
-            name = name_row["name"] if name_row else "未知任务"
             recent.append({
-                "name": name,
-                "result": r["result_success"],
-                "time": dt.datetime.fromtimestamp(r["updated_at"] / 1000),
+                "name": s["custom_title"],
+                "model": simplify_model(s["model"]),
+                "credit": sum_credit(s["credit_json"]) or s["used"] or None,
+                "result": 1 if s["status"] == "completed" else (0 if s["status"] == "failed" else None),
+                "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
 
         conn.close()
         return tasks, recent
     except Exception:
         return [], []
+
+
+def simplify_model(m):
+    """简化模型名：custom-local:deepseek-v4-flash → deepseek-v4-flash"""
+    if not m:
+        return "--"
+    return m.split(":")[-1] if ":" in m else m
+
+
+def fmt_credit(v):
+    """格式化用量：52129 → 52.1K"""
+    if v is None:
+        return "--"
+    try:
+        v = float(v)
+        if v >= 1000000:
+            return f"{v/1000000:.1f}M"
+        if v >= 1000:
+            return f"{v/1000:.1f}K"
+        return f"{v:.0f}"
+    except (TypeError, ValueError):
+        return "--"
+
+
+def sum_credit(credit_json_str):
+    """从 credit_json 字符串求和总 credit 消耗"""
+    if not credit_json_str:
+        return None
+    try:
+        data = json.loads(credit_json_str)
+        if isinstance(data, dict):
+            return sum(float(v) for v in data.values())
+        return None
+    except Exception:
+        return None
 
 
 def fmt_time(t):
