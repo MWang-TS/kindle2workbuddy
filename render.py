@@ -385,9 +385,9 @@ def draw_donut(draw, cx, cy, r, pct, width=13, show_pct=True):
     if pct > 1:
         end_angle = (270 + 360 * pct / 100) % 360
         draw.arc(bbox, start=270, end=end_angle, fill=FG, width=width)
-    # 中心百分比
+    # 中心百分比（字号放大 19→22）
     if show_pct:
-        f_num = font(19, bold=True)
+        f_num = font(22, bold=True)
         text = f"{pct:.0f}%"
         tb = draw.textbbox((0, 0), text, font=f_num)
         tw, th = tb[2] - tb[0], tb[3] - tb[1]
@@ -461,18 +461,18 @@ def render_page1():
     sys.path.insert(0, str(BASE_DIR))
     from config import SHORT_NAME
 
-    f_section = font(22, bold=True)
-    f_body = font(17)
-    f_small = font(15)
-    f_tiny = font(13)
-    f_clock = font(36, bold=True)
+    f_section = font(25, bold=True)  # 标题 22→25
+    f_body = font(20)                 # 正文 17→20
+    f_small = font(17)                # 次要 15→17
+    f_tiny = font(15)                 # 辅助 13→15
+    f_clock = font(40, bold=True)     # 大时钟 36→40
 
     # ═══ 顶部：时间 + 天气 ═══
-    draw.text((MARGIN, 12), now["date"], font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 12), now["date"], font=font(23, bold=True), fill=FG)  # 20→23
     draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
-    # 右侧天气卡片（圆角浅底）
-    wx, wy = W - 136, 12
-    draw_card(draw, wx, wy, 116, 56, radius=RADIUS_SM)
+    # 右侧天气卡片（加宽至144px容纳放大后的文字）
+    wx, wy = W - 164, 12
+    draw_card(draw, wx, wy, 144, 56, radius=RADIUS_SM)
     draw.text((wx + 12, wy + 8), weather, font=f_body, fill=FG)
     draw.text((wx + 12, wy + 32), WEATHER_CITY_CN, font=f_small, fill=DARK_GRAY)
     # 页码标记
@@ -497,11 +497,11 @@ def render_page1():
         # 圆角卡片
         draw_card(draw, cx, cy, card_w, card_h)
         
-        # 任务名称
+        # 任务名称（字号放大 16→18）
         name = SHORT_NAME.get(task["name"], task["name"])
         if len(name) > 8:
             name = name[:7] + "…"
-        draw.text((cx + 10, cy + 10), name, font=font(16, bold=True), fill=FG)
+        draw.text((cx + 10, cy + 10), name, font=font(18, bold=True), fill=FG)
         
         # 计划时间
         draw.text((cx + 10, cy + 34), task["time"], font=f_small, fill=DARK_GRAY)
@@ -531,7 +531,7 @@ def render_page1():
     ]
     for label, val in items:
         draw.text((MARGIN + 4, y), label, font=f_body, fill=DARK_GRAY)
-        draw.text((160, y), val, font=font(20, bold=True), fill=FG)
+        draw.text((160, y), val, font=font(23, bold=True), fill=FG)  # 20→23 数值加粗放大
         y += 32
 
     # ═══ WorkBuddy 系统占用 ═══
@@ -572,17 +572,17 @@ def render_page2():
     now = get_now_str()
     sys_info = get_system_info()
 
-    f_section = font(22, bold=True)
-    f_body = font(17)
-    f_small = font(15)
-    f_tiny = font(13)
-    f_clock = font(36, bold=True)
+    f_section = font(25, bold=True)  # 22→25
+    f_body = font(20)                 # 17→20
+    f_small = font(17)                # 15→17
+    f_tiny = font(15)                 # 13→15
+    f_clock = font(40, bold=True)     # 36→40
 
     # ═══ 顶部 ═══
-    draw.text((MARGIN, 12), "系统状态", font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 12), "系统状态", font=font(23, bold=True), fill=FG)  # 20→23
     draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
-    wx, wy = W - 136, 12
-    draw_card(draw, wx, wy, 116, 56, radius=RADIUS_SM)
+    wx, wy = W - 164, 12
+    draw_card(draw, wx, wy, 144, 56, radius=RADIUS_SM)
     draw.text((wx + 12, wy + 8), sys_info, font=f_body, fill=FG)
     draw.text((wx + 12, wy + 32), "电脑磁盘", font=f_small, fill=DARK_GRAY)
     draw.text((W - MARGIN - 24, 12), "2/4", font=f_tiny, fill=DARK_GRAY)
@@ -602,7 +602,7 @@ def render_page2():
             draw_donut(draw, cx, cy, 40, pct, width=11)
         else:
             draw.text((cx - 20, cy - 10), text, font=f_body, fill=FG)
-        draw.text((cx - 14, cy + 48), label, font=font(15, bold=True), fill=FG)
+        draw.text((cx - 14, cy + 48), label, font=font(17, bold=True), fill=FG)  # 15→17
         draw.text((cx - 28, cy + 68), text, font=f_tiny, fill=DARK_GRAY)
 
     # ═══ Kindle 状态 ═══
@@ -618,7 +618,7 @@ def render_page2():
     for label, pct, text in kindle_info:
         if pct is not None and pct > 0:
             draw_donut(draw, MARGIN + 44, y + 24, 30, pct, width=9)
-            draw.text((MARGIN + 96, y + 12), label, font=font(16, bold=True), fill=FG)
+            draw.text((MARGIN + 96, y + 12), label, font=font(18, bold=True), fill=FG)  # 16→18
             draw.text((MARGIN + 96, y + 36), text, font=f_tiny, fill=DARK_GRAY)
             y += 56
         else:
@@ -681,11 +681,11 @@ def render_page3():
     sys_info = get_system_info()
     today = dt.datetime.now()
 
-    f_small = font(15)
-    f_tiny = font(13)
-    f_xxl = font(72, bold=True)   # 超大时钟
-    f_day = font(19, bold=True)
-    f_lunar_day = font(19, bold=True)
+    f_small = font(17)                # 15→17
+    f_tiny = font(15)                 # 13→15
+    f_xxl = font(80, bold=True)       # 超大时钟 72→80
+    f_day = font(21, bold=True)       # 日历日期 19→21
+    f_lunar_day = font(21, bold=True)
 
     # ═══ 上 1/3：大数字时钟 + 日期 + 农历 ═══
     now_dt = dt.datetime.now()
@@ -705,7 +705,11 @@ def render_page3():
 
     # 日期（左）+ 农历徽章（右），同一行，视觉更紧凑统一
     draw.text((MARGIN, 168), now["date"], font=font(21, bold=True), fill=FG)
-    draw_badge(draw, W - MARGIN - 168, 166, "农历 " + lunar_str, f_small, bg=FG, fg=BG)
+    # 农历徽章动态计算宽度右对齐
+    badge_text = "农历 " + lunar_str
+    tb_badge = draw.textbbox((0, 0), badge_text, font=f_small)
+    badge_w = tb_badge[2] - tb_badge[0] + 12  # 文字宽度+padding
+    draw_badge(draw, W - MARGIN - badge_w, 166, badge_text, f_small, bg=FG, fg=BG)
     draw.line([(0, 214), (W, 214)], fill=FG, width=2)
 
     # ═══ 下 2/3：紧凑日历（含农历，卡片承载）═══
@@ -765,14 +769,14 @@ def render_page4():
     sys_info = get_system_info()
     running, recent = get_task_status()
 
-    f_section = font(22, bold=True)
-    f_body = font(17)
-    f_small = font(15)
-    f_tiny = font(13)
-    f_clock = font(36, bold=True)
+    f_section = font(25, bold=True)  # 22→25
+    f_body = font(20)                 # 17→20
+    f_small = font(17)                # 15→17
+    f_tiny = font(15)                 # 13→15
+    f_clock = font(40, bold=True)     # 36→40
 
     # ═══ 顶部 ═══
-    draw.text((MARGIN, 12), "当前会话信息", font=font(20, bold=True), fill=FG)
+    draw.text((MARGIN, 12), "当前会话信息", font=font(23, bold=True), fill=FG)  # 20→23
     draw.text((MARGIN, 34), now["time"], font=f_clock, fill=FG)
     draw.text((W - MARGIN - 24, 12), "4/4", font=f_tiny, fill=DARK_GRAY)
     draw.line([(0, 84), (W, 84)], fill=FG, width=2)
@@ -789,7 +793,7 @@ def render_page4():
         name = task["name"]
         if len(name) > 17:
             name = name[:16] + "…"
-        draw.text((MARGIN + 14, card_top + 14), name, font=font(20, bold=True), fill=FG)
+        draw.text((MARGIN + 14, card_top + 14), name, font=font(23, bold=True), fill=FG)  # 20→23
 
         # 状态图标（菱形=运行中）+ 文字 + 模型徽章
         draw_status_icon(draw, MARGIN + 14, card_top + 48, "running", size=16)
@@ -808,7 +812,7 @@ def render_page4():
                 usage_text += "  ·  Credit " + fmt_credit(task["credit"])
         else:
             usage_text = "Credit " + fmt_credit(task["credit"])
-        draw.text((MARGIN + 14, card_top + 106), usage_text, font=font(17, bold=True), fill=FG)
+        draw.text((MARGIN + 14, card_top + 106), usage_text, font=font(20, bold=True), fill=FG)  # 17→20
 
         cwd = task["cwd"]
         if cwd:
@@ -843,7 +847,7 @@ def render_page4():
             name = item["name"]
             if len(name) > 20:
                 name = name[:19] + "…"
-            draw.text((MARGIN + 100, inner_y), name, font=font(16, bold=True), fill=FG)
+            draw.text((MARGIN + 100, inner_y), name, font=font(18, bold=True), fill=FG)  # 16→18
 
             # 第二行：模型徽章（左） + 用量（右对齐，避免模型名过长时重叠）
             draw_badge(draw, MARGIN + 12, inner_y + 24, item["model"], f_tiny, bg=CARD_BORDER, fg=FG)
