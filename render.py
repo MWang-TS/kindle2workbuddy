@@ -237,6 +237,26 @@ def draw_progress_bar(draw, x, y, w, h, pct, fill_gray=GRAY):
         draw.rectangle([x + 1, y + 1, x + fill_w, y + h - 1], fill=fill_gray)
 
 
+def draw_donut(draw, cx, cy, r, pct, width=13, show_pct=True):
+    """绘制环形图（donut）：从12点方向顺时针显示 pct%
+    pct: 0-100；中心显示百分比数字
+    """
+    bbox = [cx - r, cy - r, cx + r, cy + r]
+    # 背景环（浅灰）
+    draw.arc(bbox, start=0, end=360, fill=LIGHT_GRAY, width=width)
+    # 前景弧（黑，从12点270°顺时针）
+    if pct > 1:
+        end_angle = (270 + 360 * pct / 100) % 360
+        draw.arc(bbox, start=270, end=end_angle, fill=FG, width=width)
+    # 中心百分比
+    if show_pct:
+        f_num = font(18, bold=True)
+        text = f"{pct:.0f}%"
+        tb = draw.textbbox((0, 0), text, font=f_num)
+        tw, th = tb[2] - tb[0], tb[3] - tb[1]
+        draw.text((cx - tw / 2, cy - th / 2), text, font=f_num, fill=FG)
+
+
 def draw_section_title(draw, text, y, fnt):
     """区块标题"""
     draw.text((20, y), text, font=fnt, fill=FG)
@@ -338,22 +358,13 @@ def render_page1():
     draw_section_title(draw, "多项目进度看板", sec2_y + 5, f_section)
     proj_y = sec2_y + 36
     row_h = 40
-    for i, p in enumerate(PROJECTS[:6]):
+    for i, p in enumerate(PROJECTS[:8]):
         ry = proj_y + i * row_h
         mark = STATUS_MARK.get(p["status"], "[ ]")
         draw.text((16, ry), mark, font=f_body, fill=FG)
         draw.text((52, ry), p["name"], font=f_body, fill=FG)
         draw.text((52, ry + 21), p["detail"], font=f_small, fill=DARK_GRAY)
         draw_progress_bar(draw, 360, ry + 4, 220, 14, p["progress"])
-
-    # 今日待办
-    sec3_y = 500
-    draw_section_title(draw, "今日待办", sec3_y + 5, f_section)
-    todo_y = sec3_y + 36
-    for i, todo in enumerate(TODOS[:4]):
-        ty = todo_y + i * 38
-        draw.text((16, ty), "[ ]", font=f_body, fill=FG)
-        draw.text((52, ty), todo, font=f_body, fill=FG)
 
     # 底部
     draw_footer(draw, now, sys_info)
@@ -386,24 +397,34 @@ def render_page2():
     draw.text((W - 16, 10), "2/4", font=f_tiny, fill=DARK_GRAY)
     draw.line([(0, 80), (W, 80)], fill=FG, width=2)
 
-    # 电脑详情
+    # 电脑状态（环形图）
     draw_section_title(draw, "电脑状态", 88, f_section)
     pc_info = get_pc_detail()
-    y = 126
-    for k, v in pc_info:
-        draw.text((20, y), k, font=f_body, fill=FG)
-        draw.text((300, y), v, font=f_body, fill=DARK_GRAY)
-        y += 30
+    donut_positions = [(110, 170), (290, 170), (470, 170)]  # 3个环形图中心
+    for i, (label, pct, text) in enumerate(pc_info[:3]):
+        cx, cy = donut_positions[i]
+        if pct > 0:
+            draw_donut(draw, cx, cy, 42, pct)
+        else:
+            draw.text((cx - 20, cy - 10), text, font=f_body, fill=FG)
+        # 标签 + 说明
+        draw.text((cx - 15, cy + 55), label, font=f_body, fill=FG)
+        draw.text((cx - 25, cy + 80), text, font=f_tiny, fill=DARK_GRAY)
 
-    # Kindle 状态
-    sec_y = 280
+    # Kindle 状态（电量环形图 + 文字）
+    sec_y = 300
     draw_section_title(draw, "Kindle 状态", sec_y, f_section)
     kindle_info = get_kindle_detail()
     y = sec_y + 36
-    for k, v in kindle_info:
-        draw.text((20, y), k, font=f_body, fill=FG)
-        draw.text((300, y), v, font=f_body, fill=DARK_GRAY)
-        y += 30
+    for label, pct, text in kindle_info:
+        if pct is not None and pct > 0:
+            draw_donut(draw, 110, y + 25, 28, pct)
+            draw.text((160, y + 15), label, font=f_body, fill=FG)
+            draw.text((160, y + 40), text, font=f_tiny, fill=DARK_GRAY)
+        else:
+            draw.text((20, y + 18), label, font=f_body, fill=FG)
+            draw.text((160, y + 18), text, font=f_body, fill=DARK_GRAY)
+        y += 62
 
     # 自动化任务下次运行
     sec_y = 470
@@ -431,7 +452,7 @@ def render_page2():
         draw.text((20, y), task["name"][:10], font=f_body, fill=FG)
         draw.text((300, y), f"{label} {rrule_str}", font=f_body, fill=DARK_GRAY)
         draw.text((W - 80, y), count, font=f_body, fill=FG)
-        y += 32
+        y += 36
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -563,7 +584,7 @@ def render_page4():
     sec_r = 295 if running else 210
     draw_section_title(draw, "最近会话", sec_r, f_section)
     if recent:
-        y = sec_r + 36
+        y = sec_r + 40
         for item in recent[:4]:
             # 第一行：时间 + 完整名称（黑字）
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
@@ -572,14 +593,14 @@ def render_page4():
                 name = name[:23] + "…"
             draw.text((90, y), name, font=f_body, fill=FG)
             # 第二行：模型（黑字）+ credit + 结果
-            draw.text((90, y + 24), "模型 " + item["model"], font=f_body, fill=FG)
-            draw.text((260, y + 24), "消耗 " + fmt_credit(item["credit"]), font=f_body, fill=FG)
+            draw.text((90, y + 28), "模型 " + item["model"], font=f_body, fill=FG)
+            draw.text((260, y + 28), "消耗 " + fmt_credit(item["credit"]), font=f_body, fill=FG)
             if item["result"] == 1:
                 mark = "✅"
             else:
                 mark = "❌"
-            draw.text((W - 36, y + 24), mark, font=f_body, fill=FG)
-            y += 46
+            draw.text((W - 36, y + 28), mark, font=f_body, fill=FG)
+            y += 56
     else:
         draw.text((20, sec_r + 40), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
 
@@ -785,7 +806,9 @@ def draw_footer(draw, now, sys_info):
 
 
 def get_pc_detail():
-    """电脑详细状态"""
+    """电脑详细状态，返回 [(label, pct, text), ...]
+    pct 用于环形图，text 为补充说明
+    """
     info = []
     try:
         import shutil
@@ -793,24 +816,26 @@ def get_pc_detail():
             try:
                 t, u, f = shutil.disk_usage(path)
                 pct = u / t * 100
-                info.append((label, f"{pct:.0f}% ({u//(1024**3)}G / {t//(1024**3)}G)"))
+                info.append((label, pct, f"{u//(1024**3)}G/{t//(1024**3)}G"))
             except Exception:
-                pass
+                info.append((label, 0, "--"))
     except Exception:
-        info.append(("磁盘", "读取失败"))
+        info.append(("磁盘", 0, "--"))
     # 进程数
     try:
         import subprocess as sp
         r = sp.run(["tasklist", "/fo", "csv"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW)
         n = r.stdout.count("\n") - 1
-        info.append(("进程数", f"{n}"))
+        info.append(("进程", 0, str(n)))
     except Exception:
         pass
     return info
 
 
 def get_kindle_detail():
-    """Kindle 详细状态（通过 SSH）"""
+    """Kindle 详细状态（通过 SSH），返回 [(label, pct_or_None, text), ...]
+    pct 用于环形图（电量），None 则纯文字显示
+    """
     info = []
     try:
         import subprocess as sp
@@ -829,14 +854,17 @@ def get_kindle_detail():
         for line in r.stdout.split("\n"):
             if line.startswith("BATT="):
                 val = line.split("=")[1].strip()
-                info.append(("电量", f"{val}%" if val.isdigit() else val))
+                if val.isdigit():
+                    info.append(("电量", int(val), f"{val}%"))
+                else:
+                    info.append(("电量", None, val))
             elif line.startswith("TIME="):
-                info.append(("Kindle 时间", line.split("=")[1].strip()))
+                info.append(("Kindle 时间", None, line.split("=")[1].strip()))
             elif line.startswith("UPTIME="):
-                info.append(("运行时间", line.split("=")[1].strip()[:24]))
+                info.append(("运行时间", None, line.split("=")[1].strip()[:24]))
     except Exception:
-        info.append(("SSH", "连接失败"))
-    info.append(("IP 地址", "192.168.8.24"))
+        info.append(("SSH", None, "连接失败"))
+    info.append(("IP 地址", None, "192.168.8.24"))
     return info
 
 
