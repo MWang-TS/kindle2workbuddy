@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import time
 import sqlite3
 import platform
 import subprocess
@@ -38,6 +39,9 @@ except ImportError:
     pass
 
 DB_PATH = os.path.expanduser(getattr(globals(), 'DB_PATH', "~/.workbuddy/workbuddy.db"))
+
+# WorkBuddy 运行数据目录（任务对话记录、缓存等）
+WORKBUDDY_DIR = str(Path(DB_PATH).parent)
 
 # 项目目录
 BASE_DIR = Path(__file__).parent
@@ -186,6 +190,45 @@ def get_system_info():
         return f"E:{pct:.0f}%"
     except Exception:
         return "E:--"
+
+
+# WorkBuddy 目录大小缓存（遍历 2.8GB 目录较慢，10 分钟缓存一次）
+_wb_usage_cache = {"ts": 0, "size": 0}
+
+
+def get_workbuddy_usage(cache_seconds=600):
+    """统计 WorkBuddy 运行目录占用 + 所在磁盘（C盘）用量
+
+    返回: {size, size_gb, pct, disk_total, disk_used, disk_free}
+    """
+    global _wb_usage_cache
+    import shutil
+    now = time.time()
+    # 目录大小带缓存
+    if now - _wb_usage_cache["ts"] > cache_seconds or _wb_usage_cache["size"] == 0:
+        total = 0
+        for dirpath, dirnames, filenames in os.walk(WORKBUDDY_DIR):
+            for f in filenames:
+                try:
+                    total += os.path.getsize(os.path.join(dirpath, f))
+                except OSError:
+                    pass
+        _wb_usage_cache = {"ts": now, "size": total}
+    size = _wb_usage_cache["size"]
+    # 磁盘：workbuddy 所在盘
+    disk_root = os.path.splitdrive(WORKBUDDY_DIR)[0] + os.sep
+    try:
+        dt_total, dt_used, dt_free = shutil.disk_usage(disk_root)
+    except Exception:
+        dt_total, dt_used, dt_free = 0, 0, 0
+    return {
+        "size": size,
+        "size_gb": size / 1024**3,
+        "pct": size / dt_total * 100 if dt_total else 0,
+        "disk_total": dt_total,
+        "disk_used": dt_used,
+        "disk_free": dt_free,
+    }
 
 
 def get_kindle_status():
@@ -403,18 +446,25 @@ def render_page1():
         draw.text((140, y), val, font=f_body, fill=FG)
         y += 34
 
-    # 多项目进度
+    # WorkBuddy 系统占用
     sec2_y = 335
-    draw_section_title(draw, "多项目进度看板", sec2_y + 5, f_section)
-    proj_y = sec2_y + 36
-    row_h = 40
-    for i, p in enumerate(PROJECTS[:7]):
-        ry = proj_y + i * row_h
-        mark = STATUS_MARK.get(p["status"], "[ ]")
-        draw.text((16, ry), mark, font=f_body, fill=FG)
-        draw.text((52, ry), p["name"], font=f_body, fill=FG)
-        draw.text((52, ry + 20), p["detail"], font=f_small, fill=DARK_GRAY)
-        draw_progress_bar(draw, 360, ry + 4, 220, 14, p["progress"])
+    draw_section_title(draw, "WorkBuddy 系统占用", sec2_y + 5, f_section)
+    wb = get_workbuddy_usage()
+    y = sec2_y + 40
+    items = [
+        ("/.workbuddy 存储", f"{wb['size_gb']:.2f} GB"),
+        ("存储占磁盘总空间", f"{wb['pct']:.2f}%"),
+        ("磁盘已用", f"{wb['disk_used']/1024**3:.1f} GB"),
+        ("磁盘可用", f"{wb['disk_free']/1024**3:.1f} GB"),
+    ]
+    for label, val in items:
+        draw.text((20, y), label, font=f_body, fill=FG)
+        draw.text((280, y), val, font=f_body, fill=FG)
+        y += 38
+    # 磁盘使用率进度条
+    disk_pct = wb["disk_used"] / wb["disk_total"] * 100 if wb["disk_total"] else 0
+    draw_progress_bar(draw, 20, y + 4, 420, 16, disk_pct)
+    draw.text((460, y), f"磁盘 {disk_pct:.0f}%", font=f_small, fill=FG)
 
     # 底部
     draw_footer(draw, now, sys_info)
