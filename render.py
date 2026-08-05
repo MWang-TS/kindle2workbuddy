@@ -539,32 +539,41 @@ def render_page4():
     draw.text((W - 16, 10), "4/4", font=f_tiny, fill=DARK_GRAY)
     draw.line([(0, 80), (W, 80)], fill=FG, width=2)
 
-    # 区块1: 正在执行
+    # 区块1: 正在执行（大字体，内容多）
     draw_section_title(draw, "正在执行", 88, f_section)
     if running:
-        y = 126
-        for task in running[:4]:
-            # 名称 + 状态
-            name = SHORT_NAME.get(task["name"], task["name"])
-            if len(name) > 10:
-                name = name[:9] + "…"
-            draw.text((20, y), name, font=f_body, fill=FG)
-            draw.text((W - 80, y), "⏳ 执行中", font=f_small, fill=FG)
-            # 第二行：模型 + 开始时间
-            draw.text((20, y + 24), "模型 " + task["model"], font=f_tiny, fill=DARK_GRAY)
-            draw.text((240, y + 24), "开始 " + fmt_time(task["start"]), font=f_tiny, fill=DARK_GRAY)
-            # 第三行：credit
-            draw.text((20, y + 42), "耗 " + fmt_credit(task["credit"]), font=f_tiny, fill=DARK_GRAY)
-            y += 60
+        y = 132
+        for task in running[:2]:
+            # 名称（完整显示，大字号）
+            name = task["name"]
+            if len(name) > 18:
+                name = name[:17] + "…"
+            draw.text((20, y), name, font=f_section, fill=FG)
+            # 状态 + 模型
+            draw.text((20, y + 32), "⏳ 执行中", font=f_body, fill=FG)
+            draw.text((150, y + 32), "模型 " + task["model"], font=f_body, fill=FG)
+            # 时间：开始 + 已运行
+            run_mins = int((dt.datetime.now() - task["start"]).total_seconds() / 60)
+            draw.text((20, y + 60), "开始 %s · 已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
+                      font=f_body, fill=FG)
+            # credit
+            draw.text((20, y + 88), "消耗 " + fmt_credit(task["credit"]), font=f_body, fill=FG)
+            # 工作目录
+            cwd = task["cwd"]
+            if cwd:
+                if len(cwd) > 32:
+                    cwd = "…" + cwd[-30:]
+                draw.text((20, y + 116), cwd, font=f_small, fill=DARK_GRAY)
+            y += 155
     else:
-        draw.text((20, 140), "当前无执行中任务", font=f_body, fill=DARK_GRAY)
+        draw.text((20, 140), "当前无执行中的会话", font=f_body, fill=FG)
 
     # 区块2: 今日执行记录
     sec2_y = 300 if running else 200
     draw_section_title(draw, "今日执行记录", sec2_y, f_section)
     if today:
         y = sec2_y + 34
-        for item in today[:6]:
+        for item in today[:5]:
             # 时间
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
             # 名称
@@ -585,7 +594,7 @@ def render_page4():
             else:
                 mark, color = "⏳", DARK_GRAY
             draw.text((W - 36, y), mark, font=f_body, fill=color)
-            y += 36
+            y += 38
     else:
         draw.text((20, sec2_y + 40), "今日暂无执行记录", font=f_body, fill=DARK_GRAY)
 
@@ -607,16 +616,16 @@ def get_task_status():
         now_dt = dt.datetime.now()
         today_start_ms = int(dt.datetime(now_dt.year, now_dt.month, now_dt.day).timestamp() * 1000)
 
-        # 正在执行的任务（后台自动化 + 当前活动会话）
+        # 正在执行的任务（当前活动的对话会话，不包含自动化任务）
         running = []
         for s in conn.execute(
-            "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, s.created_at, su.credit_json, su.used "
+            "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, s.created_at, s.cwd, s.expert_id, su.credit_json, su.used "
             "FROM sessions s "
             "LEFT JOIN session_usage su ON s.id = su.session_id "
             "WHERE s.deleted_at IS NULL "
             "AND s.status IN ('working','running','Pending','processing','queued') "
-            "AND (s.is_background_automation=1 OR s.is_playground=1) "
-            "ORDER BY s.updated_at DESC LIMIT 4"
+            "AND s.is_playground=1 "
+            "ORDER BY s.updated_at DESC LIMIT 3"
         ):
             running.append({
                 "name": s["custom_title"] or s["title"] or "未命名会话",
@@ -624,6 +633,8 @@ def get_task_status():
                 "credit": sum_credit(s["credit_json"]) or s["used"] or None,
                 "status": s["status"],
                 "start": dt.datetime.fromtimestamp((s["created_at"] or 0) / 1000),
+                "cwd": s["cwd"] or "",
+                "expert": s["expert_id"] or "",
                 "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
 
