@@ -563,24 +563,23 @@ def render_page4():
     sec_r = 295 if running else 210
     draw_section_title(draw, "最近会话", sec_r, f_section)
     if recent:
-        y = sec_r + 34
+        y = sec_r + 36
         for item in recent[:4]:
-            # 时间
+            # 第一行：时间 + 完整名称（黑字）
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
-            # 名称
             name = item["name"]
-            if len(name) > 12:
-                name = name[:11] + "…"
+            if len(name) > 24:
+                name = name[:23] + "…"
             draw.text((90, y), name, font=f_body, fill=FG)
-            # 模型
-            draw.text((330, y), item["model"][:12], font=f_tiny, fill=DARK_GRAY)
-            # 结果
+            # 第二行：模型（黑字）+ credit + 结果
+            draw.text((90, y + 24), "模型 " + item["model"], font=f_body, fill=FG)
+            draw.text((260, y + 24), "消耗 " + fmt_credit(item["credit"]), font=f_body, fill=FG)
             if item["result"] == 1:
                 mark = "✅"
             else:
                 mark = "❌"
-            draw.text((W - 36, y), mark, font=f_body, fill=FG)
-            y += 32
+            draw.text((W - 36, y + 24), mark, font=f_body, fill=FG)
+            y += 46
     else:
         draw.text((20, sec_r + 40), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
 
