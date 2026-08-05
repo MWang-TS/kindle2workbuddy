@@ -7,10 +7,15 @@ import os
 import sys
 import json
 import sqlite3
+import platform
+import subprocess
 import datetime as dt
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+# Windows 隐藏子进程窗口标志（防止 ssh/tasklist 弹窗）
+NO_WINDOW = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
 
 # ── 常量 ──────────────────────────────────────────────
 W, H = 600, 800          # Kindle 8代分辨率
@@ -197,7 +202,7 @@ def get_kindle_status():
             "echo BATT=$(lipc-get-prop com.lab126.powerd battLevel 2>/dev/null); "
             "echo WIFI=$(lipc-get-prop com.lab126.wifid cmSignalStrength 2>/dev/null)"
         ]
-        r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=10)
+        r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=10, creationflags=NO_WINDOW)
         batt = wifi = "--"
         for line in r.stdout.split("\n"):
             if line.startswith("BATT="):
@@ -568,7 +573,7 @@ def get_pc_detail():
     # 进程数
     try:
         import subprocess as sp
-        r = sp.run(["tasklist", "/fo", "csv"], capture_output=True, text=True, timeout=5)
+        r = sp.run(["tasklist", "/fo", "csv"], capture_output=True, text=True, timeout=5, creationflags=NO_WINDOW)
         n = r.stdout.count("\n") - 1
         info.append(("进程数", f"{n}"))
     except Exception:
@@ -592,7 +597,7 @@ def get_kindle_detail():
             "echo TIME=$(date +%H:%M); "
             "echo UPTIME=$(uptime 2>/dev/null | awk -F'up' '{print $2}' | cut -d, -f1-2)"
         ]
-        r = sp.run(ssh_cmd, capture_output=True, text=True, timeout=10)
+        r = sp.run(ssh_cmd, capture_output=True, text=True, timeout=10, creationflags=NO_WINDOW)
         for line in r.stdout.split("\n"):
             if line.startswith("BATT="):
                 val = line.split("=")[1].strip()

@@ -30,6 +30,9 @@ EIPS_PATH      = getattr(globals(), 'EIPS_PATH', "/usr/sbin/eips")
 OUTPUT_PNG = BASE_DIR / "output" / "dashboard.png"
 LOG_FILE   = BASE_DIR / "output" / "refresh.log"
 
+# Windows 隐藏子进程窗口标志（防止 ssh/scp 弹窗）
+NO_WINDOW = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
+
 # SSH 公共选项
 SSH_OPTS = [
     "-i", SSH_KEY,
@@ -60,7 +63,7 @@ def find_bin(name):
     ]
     for c in candidates:
         try:
-            subprocess.run([c, "-V"], capture_output=True, timeout=5)
+            subprocess.run([c, "-V"], capture_output=True, timeout=5, creationflags=NO_WINDOW)
             return c
         except (FileNotFoundError, subprocess.TimeoutExpired):
             continue
@@ -71,7 +74,7 @@ def ping_host(host):
     """ping 测试"""
     cmd = ["ping", "-n", "1", "-w", "2000", host] if platform.system() == "Windows" else ["ping", "-c", "1", "-W", "2", host]
     try:
-        r = subprocess.run(cmd, capture_output=True, timeout=8)
+        r = subprocess.run(cmd, capture_output=True, timeout=8, creationflags=NO_WINDOW)
         return r.returncode == 0
     except Exception:
         return False
@@ -91,7 +94,7 @@ def push_and_refresh(ssh_bin, scp_bin, host):
     # 2. SCP 传图
     log(f"SCP → root@{host}:{KINDLE_REMOTE}")
     scp_cmd = [scp_bin] + SSH_OPTS + [str(OUTPUT_PNG), f"{KINDLE_USER}@{host}:{KINDLE_REMOTE}"]
-    r = subprocess.run(scp_cmd, capture_output=True, text=True, timeout=30)
+    r = subprocess.run(scp_cmd, capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW)
     if r.returncode != 0:
         log(f"❌ SCP 失败: {r.stderr.strip()[:200]}")
         return False
@@ -100,7 +103,7 @@ def push_and_refresh(ssh_bin, scp_bin, host):
     # 3. SSH eips 刷新
     log(f"SSH eips 刷新...")
     ssh_cmd = [ssh_bin] + SSH_OPTS + ["-p", str(KINDLE_PORT), f"{KINDLE_USER}@{host}", remote_cmd]
-    r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=20)
+    r = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=20, creationflags=NO_WINDOW)
     if r.returncode != 0:
         log(f"❌ eips 刷新失败: {r.stderr.strip()[:200]}")
         return False
