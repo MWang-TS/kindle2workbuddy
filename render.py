@@ -416,18 +416,22 @@ def render_page2():
     draw_section_title(draw, "Kindle 状态", sec_y, f_section)
     kindle_info = get_kindle_detail()
     y = sec_y + 36
+    first = True
     for label, pct, text in kindle_info:
         if pct is not None and pct > 0:
+            # 电量：环形图（行距大）
             draw_donut(draw, 110, y + 25, 28, pct)
             draw.text((160, y + 15), label, font=f_body, fill=FG)
             draw.text((160, y + 40), text, font=f_tiny, fill=DARK_GRAY)
+            y += 58
         else:
-            draw.text((20, y + 18), label, font=f_body, fill=FG)
-            draw.text((160, y + 18), text, font=f_body, fill=DARK_GRAY)
-        y += 50
+            # 其余：纯文字（行距小）
+            draw.text((20, y), label, font=f_body, fill=FG)
+            draw.text((170, y), text, font=f_body, fill=DARK_GRAY)
+            y += 34
 
     # 自动化任务下次运行
-    sec_y = 500
+    sec_y = y + 15
     draw_section_title(draw, "下次运行倒计时", sec_y, f_section)
     automations = get_automations()
     y = sec_y + 36
@@ -592,9 +596,13 @@ def render_page4():
             if len(name) > 24:
                 name = name[:23] + "…"
             draw.text((90, y), name, font=f_body, fill=FG)
-            # 第二行：模型（黑字）+ credit + 结果
-            draw.text((90, y + 28), "模型 " + item["model"], font=f_body, fill=FG)
-            draw.text((260, y + 28), "消耗 " + fmt_credit(item["credit"]), font=f_body, fill=FG)
+            # 第二行：模型（黑字，左半）+ 消耗（右半）+ 结果
+            model_text = "模型 " + item["model"]
+            if len(model_text) > 14:
+                model_text = model_text[:13] + "…"
+            draw.text((90, y + 28), model_text, font=f_body, fill=FG)
+            credit_text = "消耗 " + fmt_credit(item["credit"])
+            draw.text((350, y + 28), credit_text, font=f_body, fill=FG)
             if item["result"] == 1:
                 mark = "✅"
             else:
