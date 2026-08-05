@@ -522,10 +522,7 @@ def render_page4():
 
     now = get_now_str()
     sys_info = get_system_info()
-    running, recent_sessions, today = get_task_status()
-
-    sys.path.insert(0, str(BASE_DIR))
-    from config import SHORT_NAME
+    running, recent = get_task_status()
 
     f_section = font(22, bold=True)
     f_body = font(17)
@@ -534,7 +531,7 @@ def render_page4():
     f_clock = font(34, bold=True)
 
     # 顶部
-    draw.text((16, 10), "任务执行状态", font=f_section, fill=FG)
+    draw.text((16, 10), "会话状态", font=f_section, fill=FG)
     draw.text((16, 30), now["time"], font=f_clock, fill=FG)
     draw.text((W - 16, 10), "4/4", font=f_tiny, fill=DARK_GRAY)
     draw.line([(0, 80), (W, 80)], fill=FG, width=2)
@@ -562,54 +559,30 @@ def render_page4():
     else:
         draw.text((20, 140), "当前无执行中的会话", font=f_body, fill=FG)
 
-    # 区块2: 最近会话
+    # 区块2: 刚刚结束的会话
     sec_r = 295 if running else 210
     draw_section_title(draw, "最近会话", sec_r, f_section)
-    y = sec_r + 32
-    for item in recent_sessions[:3]:
-        # 时间
-        draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
-        # 名称
-        name = SHORT_NAME.get(item["name"], item["name"])
-        if len(name) > 10:
-            name = name[:9] + "…"
-        draw.text((90, y), name, font=f_body, fill=FG)
-        # 模型
-        draw.text((300, y), item["model"][:14], font=f_tiny, fill=DARK_GRAY)
-        # 结果
-        if item["result"] == 1:
-            mark = "✅"
-        elif item["result"] == 0:
-            mark = "❌"
-        else:
-            mark = "⏳"
-        draw.text((W - 36, y), mark, font=f_body, fill=FG)
-        y += 30
-
-    # 区块3: 今日执行记录
-    sec_t = sec_r + 130
-    draw_section_title(draw, "今日执行记录", sec_t, f_section)
-    if today:
-        y = sec_t + 32
-        for item in today[:3]:
+    if recent:
+        y = sec_r + 34
+        for item in recent[:4]:
+            # 时间
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
-            name = SHORT_NAME.get(item["name"], item["name"])
-            if len(name) > 6:
-                name = name[:5] + "…"
-            draw.text((88, y), name, font=f_body, fill=FG)
-            draw.text((190, y), item["model"][:16], font=f_tiny, fill=DARK_GRAY)
-            if item["credit"]:
-                draw.text((390, y), fmt_credit(item["credit"]), font=f_tiny, fill=DARK_GRAY)
+            # 名称
+            name = item["name"]
+            if len(name) > 12:
+                name = name[:11] + "…"
+            draw.text((90, y), name, font=f_body, fill=FG)
+            # 模型
+            draw.text((330, y), item["model"][:12], font=f_tiny, fill=DARK_GRAY)
+            # 结果
             if item["result"] == 1:
                 mark = "✅"
-            elif item["result"] == 0:
-                mark = "❌"
             else:
-                mark = "⏳"
+                mark = "❌"
             draw.text((W - 36, y), mark, font=f_body, fill=FG)
-            y += 34
+            y += 32
     else:
-        draw.text((20, sec_t + 40), "今日暂无执行记录", font=f_body, fill=DARK_GRAY)
+        draw.text((20, sec_r + 40), "暂无已结束的会话", font=f_body, fill=DARK_GRAY)
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -618,26 +591,25 @@ def render_page4():
 
 # ── 辅助函数 ───────────────────────────────────────────
 def get_task_status():
-    """获取任务执行状态：
-    - running: 正在执行的任务（sessions 状态非 completed/failed）
-    - today:   今天的执行记录（updated_at 在今天内）
+    """获取会话执行状态（仅对话会话，不含自动化任务）：
+    - running: 正在执行的对话会话
+    - recent:  刚刚结束的对话会话（防空状态）
     """
     import sqlite3
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
-        now_dt = dt.datetime.now()
-        today_start_ms = int(dt.datetime(now_dt.year, now_dt.month, now_dt.day).timestamp() * 1000)
 
-        # 正在执行的任务（当前活动的对话会话，不包含自动化任务）
+        # 正在执行的对话会话
         running = []
         for s in conn.execute(
             "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, s.created_at, s.cwd, s.expert_id, su.credit_json, su.used "
             "FROM sessions s "
             "LEFT JOIN session_usage su ON s.id = su.session_id "
             "WHERE s.deleted_at IS NULL "
-            "AND s.status IN ('working','running','Pending','processing','queued') "
             "AND s.is_playground=1 "
+            "AND (s.custom_title IS NOT NULL OR s.title IS NOT NULL) "
+            "AND s.status IN ('working','running','Pending','processing','queued') "
             "ORDER BY s.updated_at DESC LIMIT 3"
         ):
             running.append({
@@ -651,50 +623,30 @@ def get_task_status():
                 "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
 
-        # 最近会话（已结束的会话，防推送时会话刚好结束导致空状态）
-        recent_sessions = []
+        # 刚刚结束的对话会话（防空状态）
+        recent = []
         for s in conn.execute(
             "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, su.credit_json, su.used "
             "FROM sessions s "
             "LEFT JOIN session_usage su ON s.id = su.session_id "
             "WHERE s.deleted_at IS NULL "
-            "AND (s.is_playground=1 OR s.is_background_automation=1) "
+            "AND s.is_playground=1 "
             "AND (s.custom_title IS NOT NULL OR s.title IS NOT NULL) "
             "AND s.status IN ('completed','failed') "
             "ORDER BY s.updated_at DESC LIMIT 5"
         ):
-            recent_sessions.append({
+            recent.append({
                 "name": s["custom_title"] or s["title"] or "未命名会话",
                 "model": simplify_model(s["model"]),
                 "credit": sum_credit(s["credit_json"]) or s["used"] or None,
-                "result": 1 if s["status"] == "completed" else (0 if s["status"] == "failed" else None),
-                "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
-            })
-
-        # 今天的执行记录（完成/失败）
-        today = []
-        for s in conn.execute(
-            "SELECT s.custom_title, s.model, s.status, s.updated_at, su.credit_json, su.used "
-            "FROM sessions s "
-            "LEFT JOIN session_usage su ON s.id = su.session_id "
-            "WHERE s.is_background_automation=1 AND s.custom_title IS NOT NULL "
-            "AND s.deleted_at IS NULL "
-            "AND s.updated_at >= ? "
-            "ORDER BY s.updated_at DESC LIMIT 6",
-            (today_start_ms,),
-        ):
-            today.append({
-                "name": s["custom_title"],
-                "model": simplify_model(s["model"]),
-                "credit": sum_credit(s["credit_json"]) or s["used"] or None,
-                "result": 1 if s["status"] == "completed" else (0 if s["status"] == "failed" else None),
+                "result": 1 if s["status"] == "completed" else 0,
                 "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
 
         conn.close()
-        return running, recent_sessions, today
+        return running, recent
     except Exception:
-        return [], [], []
+        return [], []
 
 
 def simplify_model(m):
