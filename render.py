@@ -522,7 +522,7 @@ def render_page4():
 
     now = get_now_str()
     sys_info = get_system_info()
-    running, today = get_task_status()
+    running, recent_sessions, today = get_task_status()
 
     sys.path.insert(0, str(BASE_DIR))
     from config import SHORT_NAME
@@ -543,60 +543,73 @@ def render_page4():
     draw_section_title(draw, "正在执行", 88, f_section)
     if running:
         y = 132
-        for task in running[:2]:
-            # 名称（完整显示，大字号）
-            name = task["name"]
-            if len(name) > 18:
-                name = name[:17] + "…"
-            draw.text((20, y), name, font=f_section, fill=FG)
-            # 状态 + 模型
-            draw.text((20, y + 32), "⏳ 执行中", font=f_body, fill=FG)
-            draw.text((150, y + 32), "模型 " + task["model"], font=f_body, fill=FG)
-            # 时间：开始 + 已运行
-            run_mins = int((dt.datetime.now() - task["start"]).total_seconds() / 60)
-            draw.text((20, y + 60), "开始 %s · 已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
-                      font=f_body, fill=FG)
-            # credit
-            draw.text((20, y + 88), "消耗 " + fmt_credit(task["credit"]), font=f_body, fill=FG)
-            # 工作目录
-            cwd = task["cwd"]
-            if cwd:
-                if len(cwd) > 32:
-                    cwd = "…" + cwd[-30:]
-                draw.text((20, y + 116), cwd, font=f_small, fill=DARK_GRAY)
-            y += 155
+        task = running[0]
+        name = task["name"]
+        if len(name) > 18:
+            name = name[:17] + "…"
+        draw.text((20, y), name, font=f_section, fill=FG)
+        draw.text((20, y + 32), "⏳ 执行中", font=f_body, fill=FG)
+        draw.text((150, y + 32), "模型 " + task["model"], font=f_body, fill=FG)
+        run_mins = int((dt.datetime.now() - task["start"]).total_seconds() / 60)
+        draw.text((20, y + 60), "开始 %s · 已运行 %d 分钟" % (task["start"].strftime("%H:%M"), run_mins),
+                  font=f_body, fill=FG)
+        draw.text((20, y + 88), "消耗 " + fmt_credit(task["credit"]), font=f_body, fill=FG)
+        cwd = task["cwd"]
+        if cwd:
+            if len(cwd) > 32:
+                cwd = "…" + cwd[-30:]
+            draw.text((20, y + 116), cwd, font=f_small, fill=DARK_GRAY)
     else:
         draw.text((20, 140), "当前无执行中的会话", font=f_body, fill=FG)
 
-    # 区块2: 今日执行记录
-    sec2_y = 300 if running else 200
-    draw_section_title(draw, "今日执行记录", sec2_y, f_section)
+    # 区块2: 最近会话
+    sec_r = 295 if running else 210
+    draw_section_title(draw, "最近会话", sec_r, f_section)
+    y = sec_r + 32
+    for item in recent_sessions[:3]:
+        # 时间
+        draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
+        # 名称
+        name = SHORT_NAME.get(item["name"], item["name"])
+        if len(name) > 10:
+            name = name[:9] + "…"
+        draw.text((90, y), name, font=f_body, fill=FG)
+        # 模型
+        draw.text((300, y), item["model"][:14], font=f_tiny, fill=DARK_GRAY)
+        # 结果
+        if item["result"] == 1:
+            mark = "✅"
+        elif item["result"] == 0:
+            mark = "❌"
+        else:
+            mark = "⏳"
+        draw.text((W - 36, y), mark, font=f_body, fill=FG)
+        y += 30
+
+    # 区块3: 今日执行记录
+    sec_t = sec_r + 130
+    draw_section_title(draw, "今日执行记录", sec_t, f_section)
     if today:
-        y = sec2_y + 34
-        for item in today[:5]:
-            # 时间
+        y = sec_t + 32
+        for item in today[:3]:
             draw.text((16, y), fmt_time(item["time"]), font=f_small, fill=DARK_GRAY)
-            # 名称
             name = SHORT_NAME.get(item["name"], item["name"])
             if len(name) > 6:
                 name = name[:5] + "…"
             draw.text((88, y), name, font=f_body, fill=FG)
-            # 模型
             draw.text((190, y), item["model"][:16], font=f_tiny, fill=DARK_GRAY)
-            # credit
             if item["credit"]:
                 draw.text((390, y), fmt_credit(item["credit"]), font=f_tiny, fill=DARK_GRAY)
-            # 结果
             if item["result"] == 1:
-                mark, color = "✅", FG
+                mark = "✅"
             elif item["result"] == 0:
-                mark, color = "❌", FG
+                mark = "❌"
             else:
-                mark, color = "⏳", DARK_GRAY
-            draw.text((W - 36, y), mark, font=f_body, fill=color)
-            y += 38
+                mark = "⏳"
+            draw.text((W - 36, y), mark, font=f_body, fill=FG)
+            y += 34
     else:
-        draw.text((20, sec2_y + 40), "今日暂无执行记录", font=f_body, fill=DARK_GRAY)
+        draw.text((20, sec_t + 40), "今日暂无执行记录", font=f_body, fill=DARK_GRAY)
 
     draw_footer(draw, now, sys_info)
     img.save(OUTPUT_PNG, "PNG")
@@ -638,6 +651,26 @@ def get_task_status():
                 "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
             })
 
+        # 最近会话（已结束的会话，防推送时会话刚好结束导致空状态）
+        recent_sessions = []
+        for s in conn.execute(
+            "SELECT s.custom_title, s.title, s.model, s.status, s.updated_at, su.credit_json, su.used "
+            "FROM sessions s "
+            "LEFT JOIN session_usage su ON s.id = su.session_id "
+            "WHERE s.deleted_at IS NULL "
+            "AND (s.is_playground=1 OR s.is_background_automation=1) "
+            "AND (s.custom_title IS NOT NULL OR s.title IS NOT NULL) "
+            "AND s.status IN ('completed','failed') "
+            "ORDER BY s.updated_at DESC LIMIT 5"
+        ):
+            recent_sessions.append({
+                "name": s["custom_title"] or s["title"] or "未命名会话",
+                "model": simplify_model(s["model"]),
+                "credit": sum_credit(s["credit_json"]) or s["used"] or None,
+                "result": 1 if s["status"] == "completed" else (0 if s["status"] == "failed" else None),
+                "time": dt.datetime.fromtimestamp(s["updated_at"] / 1000),
+            })
+
         # 今天的执行记录（完成/失败）
         today = []
         for s in conn.execute(
@@ -659,9 +692,9 @@ def get_task_status():
             })
 
         conn.close()
-        return running, today
+        return running, recent_sessions, today
     except Exception:
-        return [], []
+        return [], [], []
 
 
 def simplify_model(m):
