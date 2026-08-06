@@ -25,12 +25,15 @@ try:
 except ImportError:
     pass
 
-KINDLE_HOST    = getattr(globals(), 'KINDLE_HOST', "192.168.x.x")
-KINDLE_PORT    = getattr(globals(), 'KINDLE_PORT', 22)
-KINDLE_USER    = getattr(globals(), 'KINDLE_USER', "root")
-KINDLE_REMOTE  = getattr(globals(), 'KINDLE_REMOTE', "/mnt/us/dashboard.png")
-SSH_KEY        = os.path.expanduser(getattr(globals(), 'SSH_KEY', "~/.ssh/id_kindle"))
-EIPS_PATH      = getattr(globals(), 'EIPS_PATH', "/usr/sbin/eips")
+# 注意：getattr(globals(), ...) 是错误写法（globals()返回dict，没有属性可读，
+# 会导致fallback永远生效，settings.py里的配置永远不会被真正读取）。
+# 正确做法：globals().get(name, fallback) 读取dict的key。
+KINDLE_HOST    = globals().get('KINDLE_HOST', "192.168.x.x")
+KINDLE_PORT    = globals().get('KINDLE_PORT', 22)
+KINDLE_USER    = globals().get('KINDLE_USER', "root")
+KINDLE_REMOTE  = globals().get('KINDLE_REMOTE', "/mnt/us/dashboard.png")
+SSH_KEY        = os.path.expanduser(globals().get('SSH_KEY', "~/.ssh/id_kindle"))
+EIPS_PATH      = globals().get('EIPS_PATH', "/usr/sbin/eips")
 
 OUTPUT_PNG = BASE_DIR / "output" / "dashboard.png"
 LOG_FILE   = BASE_DIR / "output" / "refresh.log"

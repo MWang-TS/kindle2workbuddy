@@ -13,6 +13,9 @@ output/
 *.pem
 *.key
 
+# 本地真实配置（含真实IP/城市名等隐私信息，复制 settings.example.py 生成）
+settings.py
+
 # 系统文件
 .DS_Store
 Thumbs.db

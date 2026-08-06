@@ -83,13 +83,18 @@ Turn a jailbroken Kindle into a dedicated WorkBuddy dashboard display via WiFi S
 
 ### 1. 配置
 
+复制配置模板，并填入你自己的真实信息（`settings.py` 已加入 `.gitignore`，不会被提交）：
+```bash
+cp settings.example.py settings.py
+```
+
 编辑 `settings.py`：
 ```python
 KINDLE_HOST = "192.168.x.x"  # Kindle 的 WiFi IP（Kindle 搜索框输入 ;711 查看）
 SSH_KEY = "~/.ssh/id_kindle"  # SSH 密钥路径
 ```
 
-编辑 `config.py` 自定义你的项目和待办。
+编辑 `config.py` 自定义你的自动化任务简称映射。
 
 ### 2. 安装 Python 依赖
 
@@ -142,7 +147,8 @@ schtasks /create /tn "KindleDashboard" /tr "E:\path\to\kindle-dashboard\run_refr
 
 ```
 kindle2workbuddy/
-├── settings.py          # 配置文件（Kindle IP、SSH key、数据源等）
+├── settings.example.py  # 配置模板（复制为settings.py后填真实信息）
+├── settings.py          # 真实配置（已gitignore，不会提交）
 ├── config.py            # 自动化任务简称映射
 ├── render.py            # 渲染引擎（4 页轮播）
 ├── refresh.py           # 推送脚本（SCP + SSH eips 刷新）
@@ -290,13 +296,18 @@ Prerequisite: Kindle jailbroken + KUAL/MRPI installed + USBNetwork (WiFi mode).
 
 ### 1. Configure
 
+Copy the config template and fill in your real values (`settings.py` is gitignored, never committed):
+```bash
+cp settings.example.py settings.py
+```
+
 Edit `settings.py`:
 ```python
 KINDLE_HOST = "192.168.x.x"  # Kindle WiFi IP (find via ;711 on Kindle)
 SSH_KEY = "~/.ssh/id_kindle"  # SSH key path
 ```
 
-Edit `config.py` to customize your projects and todos.
+Edit `config.py` to customize your automation task short-name mapping.
 
 ### 2. Install Python deps
 
@@ -337,15 +348,17 @@ schtasks /create /tn "KindleDashboard" /tr "E:\path\to\kindle-dashboard\run_refr
 
 ```
 kindle2workbuddy/
-├── settings.py          # Configuration (Kindle IP, SSH key, etc.)
-├── config.py            # Project data (projects, todos, name mappings)
+├── settings.example.py  # Config template (copy to settings.py, fill in real values)
+├── settings.py          # Real config (gitignored, never committed)
+├── config.py            # Automation task short-name mapping
 ├── render.py            # Rendering engine (4-page carousel)
 ├── refresh.py           # Push script (SCP + SSH eips refresh)
+├── daemon.py            # Background daemon (loops refresh.py every 30s)
 ├── run_refresh.bat      # Windows wrapper for Task Scheduler
 ├── manual_refresh.bat   # Manual refresh shortcut
 ├── setup_cron.ps1       # Windows Task Scheduler setup
-├── kindle_rndis.inf     # RNDIS driver (for USB mode, optional)
 ├── INSTALL.md           # USBNetwork installation guide
+├── SKILL.md             # WorkBuddy Skill documentation
 └── output/              # Generated dashboard.png and logs (gitignored)
 ```
 

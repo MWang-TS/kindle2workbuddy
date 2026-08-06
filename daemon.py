@@ -42,7 +42,9 @@ def main():
             if r.returncode != 0:
                 log(f"refresh.py exited with {r.returncode}")
                 if r.stderr:
-                    log(f"stderr: {r.stderr.strip()[:200]}")
+                    # 完整记录stderr（不截断），多行错误用换行分隔
+                    for line in r.stderr.strip().split('\n'):
+                        log(f"  {line}")
         except subprocess.TimeoutExpired:
             log("refresh.py timeout (120s)")
         except Exception as e:

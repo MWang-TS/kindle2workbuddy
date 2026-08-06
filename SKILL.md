@@ -32,7 +32,7 @@ version: 0.1.0
 
 ## 配置文件
 
-**settings.py** - 核心配置
+**settings.py** - 核心配置（首次使用需 `cp settings.example.py settings.py`，该文件已 gitignore 不会被提交）
 ```python
 KINDLE_HOST = "192.168.x.x"     # Kindle WiFi IP（Kindle搜索框输入 ;711 查看）
 KINDLE_PORT = 22
@@ -135,7 +135,8 @@ ssh root@<KINDLE_IP> "/usr/sbin/eips -c"
 
 ```
 kindle-dashboard/
-├── settings.py          # 核心配置（IP、SSH key、数据源）
+├── settings.example.py  # 配置模板（复制为settings.py后填真实信息）
+├── settings.py          # 真实配置（已gitignore，不会提交）
 ├── config.py            # 自动化任务简称映射
 ├── render.py            # 渲染引擎（4页轮播，v0.1.0）
 ├── refresh.py           # 推送脚本（SCP + SSH eips）

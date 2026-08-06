@@ -55,7 +55,9 @@ try:
 except ImportError:
     pass
 
-DB_PATH = os.path.expanduser(getattr(globals(), 'DB_PATH', "~/.workbuddy/workbuddy.db"))
+# 注意：getattr(globals(), ...) 是错误写法，globals()返回dict没有该属性，
+# 会导致fallback永远生效。正确做法用 globals().get(name, fallback)。
+DB_PATH = os.path.expanduser(globals().get('DB_PATH', "~/.workbuddy/workbuddy.db"))
 
 # WorkBuddy 运行数据目录（任务对话记录、缓存等）
 WORKBUDDY_DIR = str(Path(DB_PATH).parent)
