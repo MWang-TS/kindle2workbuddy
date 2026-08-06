@@ -1,7 +1,7 @@
 ---
 name: kindle-dashboard
 description: 将越狱后的Kindle改造成WorkBuddy专属Dashboard显示屏。通过WiFi SSH推送PNG图片到Kindle，用eips刷新e-ink屏幕，展示自动化任务、会话总览、系统状态、日历等信息。4页轮播，30秒一页。
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Kindle Dashboard
@@ -40,6 +40,7 @@ KINDLE_USER = "root"
 SSH_KEY = "~/.ssh/id_kindle"     # SSH密钥路径
 EIPS_PATH = "/usr/sbin/eips"     # Kindle上eips命令路径
 KINDLE_REMOTE = "/mnt/us/dashboard.png"
+AUTO_DISCOVER_IP = True          # DHCP自动重新发现，IP失效时自动扫描局域网找回Kindle
 
 DB_PATH = "~/.workbuddy/workbuddy.db"  # WorkBuddy数据库路径
 DISK_PATH = "E:/"                       # 监控的磁盘
@@ -97,6 +98,28 @@ Get-ScheduledTask -TaskName "WorkBuddy Kindle Dashboard Refresh"
 4. SSH执行 `eips -c && eips -g /mnt/us/dashboard.png` 清屏并刷新
 5. Windows任务计划程序每30秒自动调用一次refresh.py
 
+## DHCP自动重新发现（v0.1.1+）
+
+路由器重新分配IP是家庭网络的常见场景，Kindle的IP可能在DHCP续租时发生变化，
+导致 `KINDLE_HOST` 配置失效、推送失败。v0.1.1起内置自动恢复机制：
+
+**触发条件**：正常ping通过但推送失败（SCP/SSH连接失败），或ping本身失败
+
+**恢复流程**：
+1. 获取本机所在局域网子网前缀（通过UDP socket探测路由出口IP，不发真实数据包）
+2. 并行ping子网内所有254个地址，找出在线设备（约20-40秒，带1次重试容忍偶发丢包）
+3. 对在线设备并行SSH执行Kindle特有命令（`lipc-get-prop com.lab126.powerd battLevel`）
+   验证身份，避免把局域网其他设备误判为Kindle
+4. 找到后自动把新IP写回 `settings.py`（保留其余配置和注释不变），并用新IP重新推送
+
+**性能设计**：
+- 正常场景（IP未变）零额外开销，只有推送失败时才触发扫描
+- 单轮扫描不做失败重试——daemon本身每30秒会自动重跑，下个周期自然重试
+- SSH并发验证限制为5（Windows OpenSSH客户端实测并发过高会有资源竞争，
+  导致部分验证请求失败但不抛异常，容易漏判真实Kindle）
+
+**关闭方式**：`settings.py` 中设置 `AUTO_DISCOVER_IP = False`
+
 ## 数据源说明
 
 - **自动化任务** - 读取 `~/.workbuddy/workbuddy.db` 的 `automations` 表
@@ -138,7 +161,7 @@ kindle-dashboard/
 ├── settings.example.py  # 配置模板（复制为settings.py后填真实信息）
 ├── settings.py          # 真实配置（已gitignore，不会提交）
 ├── config.py            # 自动化任务简称映射
-├── render.py            # 渲染引擎（4页轮播，v0.1.0）
+├── render.py            # 渲染引擎（4页轮播，v0.1.1）
 ├── refresh.py           # 推送脚本（SCP + SSH eips）
 ├── daemon.py            # 后台守护进程（30秒循环）
 ├── manual_refresh.bat   # 手动刷新快捷方式
@@ -157,6 +180,13 @@ kindle-dashboard/
 - 依赖 WorkBuddy 本地数据库（离线可用，但数据需WorkBuddy应用写入）
 
 ## 更新日志
+
+### v0.1.1 (2026-08-06)
+- 修复：SCP/SSH命令缺少显式端口参数的隐藏bug（用户`~/.ssh/config`里对目标IP有
+  其他端口配置时会连接失败或连到错误端口，scp用`-P`大写，ssh用`-p`小写）
+- 新增：DHCP自动重新发现机制，路由器重新分配Kindle IP后自动扫描局域网找回并
+  更新配置，无需手动排查IP变化
+- 清理隐私信息：settings.py 分离为本地配置(gitignore)+settings.example.py模板
 
 ### v0.1.0 (2026-08-05)
 - 视觉系统v1.3：统一圆角卡片、几何图标、环形进度条

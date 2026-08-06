@@ -3,7 +3,7 @@
 用 Pillow 生成 600x800 灰度 PNG，针对 Kindle 8代 e-ink 屏优化。
 布局：顶部状态栏 / 自动化任务 / 多项目进度 / 今日待办 / 底部刷新栏
 """
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 import os
 import sys

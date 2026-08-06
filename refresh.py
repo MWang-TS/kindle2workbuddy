@@ -4,12 +4,15 @@
 WiFi 模式：Kindle IP 见 settings.py 的 KINDLE_HOST，SSH 免密（id_kindle 密钥）。
 """
 import os
+import re
 import sys
 import json
 import time
+import socket
 import subprocess
 import platform
 import datetime as dt
+import concurrent.futures
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent
@@ -34,6 +37,9 @@ KINDLE_USER    = globals().get('KINDLE_USER', "root")
 KINDLE_REMOTE  = globals().get('KINDLE_REMOTE', "/mnt/us/dashboard.png")
 SSH_KEY        = os.path.expanduser(globals().get('SSH_KEY', "~/.ssh/id_kindle"))
 EIPS_PATH      = globals().get('EIPS_PATH', "/usr/sbin/eips")
+# DHCP自动重新发现：IP失联时自动扫描局域网找回Kindle（默认开启，settings.py里可关闭）
+AUTO_DISCOVER_IP = globals().get('AUTO_DISCOVER_IP', True)
+SETTINGS_FILE  = BASE_DIR / "settings.py"
 
 OUTPUT_PNG = BASE_DIR / "output" / "dashboard.png"
 LOG_FILE   = BASE_DIR / "output" / "refresh.log"
@@ -78,13 +84,140 @@ def find_bin(name):
     return name  # 兜底
 
 
-def ping_host(host):
-    """ping 测试"""
-    cmd = ["ping", "-n", "1", "-w", "2000", host] if platform.system() == "Windows" else ["ping", "-c", "1", "-W", "2", host]
+def ping_host(host, timeout_ms=2000, retries=1):
+    """ping 测试，支持重试（局域网设备偶发丢包时避免误判为离线，
+    Kindle WiFi信号不稳定场景下实测丢包率可达30%+）"""
+    cmd = ["ping", "-n", "1", "-w", str(timeout_ms), host] if platform.system() == "Windows" else \
+          ["ping", "-c", "1", "-W", str(timeout_ms // 1000 or 1), host]
+    for attempt in range(retries + 1):
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=timeout_ms / 1000 + 3, creationflags=NO_WINDOW)
+            if r.returncode == 0:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def get_local_subnet_prefix():
+    """获取本机所在局域网子网前缀（如 '192.168.8'），用于扫描范围。
+    用 UDP connect 到公共地址获取路由出口IP，不会真的发包。
+    """
     try:
-        r = subprocess.run(cmd, capture_output=True, timeout=8, creationflags=NO_WINDOW)
-        return r.returncode == 0
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(1)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        return ".".join(local_ip.split(".")[:3])
     except Exception:
+        return None
+
+
+def verify_is_kindle(host, ssh_bin, timeout=3, retries=1):
+    """通过SSH执行Kindle特有命令验证该IP是否为目标Kindle设备。
+    用 lipc-get-prop 查询电量（返回0-100的数字），只有真正的Kindle才会有这个命令。
+    带重试：Kindle WiFi信号不稳定时单次SSH可能因丢包失败，重试避免误判漏检。
+    """
+    cmd = [
+        ssh_bin, "-i", SSH_KEY,
+        "-p", str(KINDLE_PORT),
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", f"ConnectTimeout={timeout}",
+        "-o", "BatchMode=yes",  # 禁止交互式密码提示，避免扫描时卡住
+        f"{KINDLE_USER}@{host}",
+        "lipc-get-prop com.lab126.powerd battLevel",
+    ]
+    for attempt in range(retries + 1):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout + 2, creationflags=NO_WINDOW)
+            if r.returncode == 0 and r.stdout.strip().isdigit():
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _scan_once(ssh_bin, exclude_host, max_workers):
+    """单次完整扫描：ping找在线设备 + SSH验证身份，返回找到的IP或None"""
+    subnet = get_local_subnet_prefix()
+    if not subnet:
+        log("⚠️ 无法获取本机子网信息，跳过自动发现")
+        return None
+
+    log(f"🔍 开始扫描子网 {subnet}.0/24 寻找 Kindle...")
+    candidates = [f"{subnet}.{i}" for i in range(1, 255) if f"{subnet}.{i}" != exclude_host]
+
+    # 第一轮：并行ping找出在线设备（带1次重试，容忍偶发丢包）
+    online = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(ping_host, ip, 500, 1): ip for ip in candidates}
+        for future in concurrent.futures.as_completed(futures):
+            if future.result():
+                online.append(futures[future])
+    log(f"🔍 子网内发现 {len(online)} 台在线设备，逐一验证身份...")
+
+    if not online:
+        return None
+
+    # 第二轮：对在线设备并行SSH验证身份。
+    # 注意：并发数不能太高——Windows OpenSSH客户端在高并发下(实测10个)会出现
+    # 部分请求异常失败(非超时,是连接层面的资源竞争),返回False但不抛异常,容易漏判
+    # 真实的Kindle。实测并发5可稳定识别，故限制为5。
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(online))) as executor:
+        futures = {executor.submit(verify_is_kindle, ip, ssh_bin): ip for ip in online}
+        for future in concurrent.futures.as_completed(futures):
+            if future.result():
+                return futures[future]
+
+    return None
+
+
+def discover_kindle_ip(ssh_bin, exclude_host=None, max_workers=40):
+    """DHCP自动重新发现：并行ping本机子网所有地址，对在线IP并行SSH验证身份，
+    找到第一个匹配的Kindle即返回其IP。整个过程约20-40秒（子网内设备较多或
+    Kindle WiFi信号不稳定时会略长）。
+
+    只扫描一轮不做整体重试——daemon本身每30秒会自动重跑refresh.py，
+    这次没找到，下一个周期会自然重试，不需要在单次调用内堆叠重试拖长耗时。
+
+    返回: 找到的新IP字符串，或 None（未找到）
+    """
+    found_ip = _scan_once(ssh_bin, exclude_host, max_workers)
+    if found_ip:
+        log(f"✅ 找到 Kindle，新IP: {found_ip}")
+        return found_ip
+
+    log("❌ 扫描完成，未在局域网内找到匹配的 Kindle 设备（下个周期会自动重试）")
+    return None
+
+
+def update_settings_ip(new_ip):
+    """把新发现的IP写回 settings.py，持久化配置（下次启动无需重新扫描）。
+    只替换 KINDLE_HOST 那一行，保留文件其余内容和注释不变。
+    """
+    if not SETTINGS_FILE.exists():
+        log("⚠️ settings.py 不存在，无法持久化新IP（本次推送仍会使用新IP，但下次重启后需重新扫描）")
+        return False
+    try:
+        text = SETTINGS_FILE.read_text(encoding="utf-8")
+        new_text, n = re.subn(
+            r'^KINDLE_HOST\s*=\s*["\'][^"\']*["\']',
+            f'KINDLE_HOST    = "{new_ip}"',
+            text,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        if n == 0:
+            log("⚠️ settings.py 中未找到 KINDLE_HOST 行，无法自动更新")
+            return False
+        SETTINGS_FILE.write_text(new_text, encoding="utf-8")
+        log(f"✅ 已将新IP写回 settings.py: {new_ip}")
+        return True
+    except Exception as e:
+        log(f"⚠️ 写回 settings.py 失败: {e}")
         return False
 
 
@@ -142,6 +275,7 @@ def write_page_state(page):
 
 
 def main():
+    global KINDLE_HOST
     log("=" * 50)
     log("开始刷新 dashboard")
 
@@ -155,14 +289,40 @@ def main():
     scp_bin = find_bin("scp")
     log(f"SSH: {ssh_bin}  SCP: {scp_bin}")
 
-    # 3. 检测 Kindle
-    if not ping_host(KINDLE_HOST):
-        log(f"❌ Kindle 不在线 ({KINDLE_HOST})，请确认 Kindle 已唤醒且 WiFi 已连")
-        return 1
-    log(f"✅ Kindle 在线: {KINDLE_HOST}")
+    # 3. 检测 Kindle 是否在线（ping only，快速路径，正常情况下每30秒都会执行）
+    host = KINDLE_HOST
+    online = ping_host(host)
+    if online:
+        log(f"✅ Kindle 在线: {host}")
 
-    # 4. 推送 + 刷新
-    if push_and_refresh(ssh_bin, scp_bin, KINDLE_HOST):
+    # 4. 推送 + 刷新。若ping失败，或ping通过但推送失败（可能是ping误判/端口配置问题/
+    # 真正的DHCP换IP），才触发慢速的身份验证+局域网扫描路径，避免每次正常推送都
+    # 额外增加一次SSH身份验证的开销。
+    success = online and push_and_refresh(ssh_bin, scp_bin, host)
+
+    if not success:
+        if online:
+            log(f"❌ 推送失败，Kindle IP 可能已失效 ({host})")
+        else:
+            log(f"❌ Kindle 不在线 ({host})")
+
+        if AUTO_DISCOVER_IP:
+            log("⏳ 尝试自动发现 Kindle 新IP（DHCP可能已重新分配地址）...")
+            new_ip = discover_kindle_ip(ssh_bin, exclude_host=host)
+            if new_ip:
+                update_settings_ip(new_ip)
+                host = new_ip
+                KINDLE_HOST = new_ip
+                log(f"✅ 使用新IP重新推送: {host}")
+                success = push_and_refresh(ssh_bin, scp_bin, host)
+            else:
+                log("请确认 Kindle 已唤醒且 WiFi 已连，或在 settings.py 中手动更新 KINDLE_HOST")
+                return 1
+        else:
+            log("请确认 Kindle 已唤醒且 WiFi 已连（AUTO_DISCOVER_IP 已关闭，不会自动扫描）")
+            return 1
+
+    if success:
         write_page_state(page)
         log("✅ 全部完成")
         return 0

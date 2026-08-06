@@ -9,6 +9,9 @@ KINDLE_USER    = "root"
 SSH_KEY        = "~/.ssh/id_kindle"   # SSH 密钥路径
 EIPS_PATH      = "/usr/sbin/eips"     # Kindle 上 eips 命令路径
 KINDLE_REMOTE  = "/mnt/us/dashboard.png"  # Kindle 上图片存放路径
+# DHCP自动重新发现：路由器重新分配IP导致推送失败时，自动扫描局域网找回Kindle
+# （通过SSH身份验证确认，找到后自动写回本文件），设为False可关闭此行为
+AUTO_DISCOVER_IP = True
 
 # ── 数据源 ──────────────────────────────────────────
 DB_PATH        = "~/.workbuddy/workbuddy.db"  # WorkBuddy 数据库路径
