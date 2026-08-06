@@ -257,6 +257,7 @@ def get_kindle_status():
         ssh_cmd = [
             "ssh",
             "-i", os.path.expanduser(SSH_KEY),
+            "-p", str(globals().get('KINDLE_PORT', 22)),
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "ConnectTimeout=5",
@@ -1149,6 +1150,7 @@ def get_kindle_detail():
         ssh_cmd = [
             "ssh",
             "-i", os.path.expanduser(SSH_KEY),
+            "-p", str(globals().get('KINDLE_PORT', 22)),
             "-o", "StrictHostKeyChecking=no",
             "-o", "UserKnownHostsFile=/dev/null",
             "-o", "ConnectTimeout=5",

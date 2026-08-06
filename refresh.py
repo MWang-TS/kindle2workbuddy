@@ -99,9 +99,10 @@ def push_and_refresh(ssh_bin, scp_bin, host):
         f"{EIPS_PATH} -f -g {KINDLE_REMOTE}"
     )
 
-    # 2. SCP 传图
+    # 2. SCP 传图（注意：scp 端口参数是大写 -P，与 ssh 的小写 -p 不同，之前漏加导致
+    # 走 ~/.ssh/config 里的默认端口配置，若该IP在config中被其他设备占用会连接失败）
     log(f"SCP → root@{host}:{KINDLE_REMOTE}")
-    scp_cmd = [scp_bin] + SSH_OPTS + [str(OUTPUT_PNG), f"{KINDLE_USER}@{host}:{KINDLE_REMOTE}"]
+    scp_cmd = [scp_bin] + SSH_OPTS + ["-P", str(KINDLE_PORT), str(OUTPUT_PNG), f"{KINDLE_USER}@{host}:{KINDLE_REMOTE}"]
     r = subprocess.run(scp_cmd, capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW)
     if r.returncode != 0:
         log(f"❌ SCP 失败: {r.stderr.strip()[:200]}")
